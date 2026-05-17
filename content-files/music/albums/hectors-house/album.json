@@ -1,0 +1,24 @@
+{
+    "title": "Hector's House",
+    "releaseDate": "2026-05-18",
+    "description": "",
+    "year": "2026",
+    "artwork": "artwork.png",
+    "palette": {
+        "bg": "#07050d",
+        "ink": "#f3e9ff",
+        "hero": "#d7a24a",
+        "accent": "#7c2cff",
+        "muted": "#6d4b93",
+        "surface": "rgba(124,44,255,0.07)",
+        "line": "rgba(167,93,255,0.28)"
+    },
+    "tracks": [
+        "01-synchronicity",
+        "02-boots-and-pants",
+        "03-i-jam-i-slam",
+        "04-acceptable-experience",
+        "05-crossed-the-streams",
+        "06-wir-tanzen-mit-dem-schicksal"
+    ]
+}
