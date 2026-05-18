@@ -1932,6 +1932,18 @@ ${audioDataScripts}
         try { await player.play(); } catch (err) { console.error(err); }
       }
 
+      function isTypingTarget(target) {
+        if (!target) {
+          return false;
+        }
+        const tagName = target.tagName;
+        return Boolean(
+          target.isContentEditable ||
+          target.closest('[contenteditable="true"]') ||
+          (tagName && ['INPUT', 'TEXTAREA', 'SELECT'].includes(tagName))
+        );
+      }
+
       list.addEventListener('click', async (event) => {
         const button = event.target.closest('[data-track-index]');
         if (!button) {
@@ -1942,8 +1954,7 @@ ${audioDataScripts}
 
       document.addEventListener('keydown', async (event) => {
         if (event.code === 'Space') {
-          const tagName = event.target && event.target.tagName;
-          if (tagName && ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes(tagName)) {
+          if (event.repeat || isTypingTarget(event.target)) {
             return;
           }
           event.preventDefault();
