@@ -6,7 +6,11 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@/*": ["./scripts/*"],
+      "scripts/*": ["./scripts/*"]
+    }
   },
   "include": ["scripts/**/*.ts"]
 }

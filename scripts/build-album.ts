@@ -384,6 +384,8 @@ function buildPartyModeLoaderScript(): string {
   var activeProfile = null;
   var profilePromise = null;
   var lastRenderTime = 0;
+  var currentPresetName = '';
+  var lastAudioSrc = '';
 
   var performanceProfiles = {
     low: { name: 'low', label: 'Low', width: 640, height: 360, fps: 24, textureRatio: 1 },
@@ -608,7 +610,7 @@ function buildPartyModeLoaderScript(): string {
     return profilePromise;
   }
 
-  function getPreset() {
+  function getPresetChoice() {
     if (!window.butterchurnPresets || !window.butterchurnPresets.getPresets) {
       return null;
     }
@@ -622,7 +624,53 @@ function buildPartyModeLoaderScript(): string {
       return null;
     }
 
-    return presets[presetNames[Math.floor(Math.random() * presetNames.length)]];
+    var availableNames = presetNames;
+    if (presetNames.length > 1 && currentPresetName) {
+      availableNames = presetNames.filter(function (name) {
+        return name !== currentPresetName;
+      });
+    }
+
+    var name = availableNames[Math.floor(Math.random() * availableNames.length)];
+    return {
+      name: name,
+      preset: presets[name]
+    };
+  }
+
+  function changePreset(reason, blendSeconds) {
+    if (!visualizer) {
+      return;
+    }
+
+    var choice = getPresetChoice();
+    if (!choice) {
+      warn('No Butterchurn preset was available.');
+      return;
+    }
+
+    currentPresetName = choice.name;
+    visualizer.loadPreset(choice.preset, blendSeconds);
+    log('Loaded visualizer preset.', {
+      reason: reason,
+      preset: currentPresetName,
+      blendSeconds: blendSeconds
+    });
+  }
+
+  function noteAudioSource(audio, reason) {
+    var src = audio && (audio.currentSrc || audio.src);
+    if (!src || src === lastAudioSrc) {
+      return;
+    }
+
+    if (!lastAudioSrc) {
+      lastAudioSrc = src;
+      return;
+    }
+
+    lastAudioSrc = src;
+    changePreset(reason, 1.2);
   }
 
   function connectAudio(audio) {
@@ -662,18 +710,13 @@ function buildPartyModeLoaderScript(): string {
         height: profile.height,
         textureRatio: profile.textureRatio
       });
-      var preset = getPreset();
-      if (preset) {
-        visualizer.loadPreset(preset, 0);
-        log('Loaded initial preset.');
-      } else {
-        warn('No Butterchurn preset was available.');
-      }
+      changePreset('initial', 0);
     }
 
     visualizer.connectAudio(source);
     connectedAudio = audio;
     connectedNode = source;
+    noteAudioSource(audio, 'song-change');
     log('Audio connected to visualizer.');
   }
 
@@ -802,16 +845,27 @@ function buildPartyModeLoaderScript(): string {
       audio.__partyModeBound = true;
       audio.addEventListener('play', function () {
         log('Audio play event.', { src: audio.currentSrc || audio.src });
+        noteAudioSource(audio, 'song-change');
         maybeStartVisualizer();
         updateButtonState();
       });
       audio.addEventListener('playing', function () {
         log('Audio playing event.', { src: audio.currentSrc || audio.src });
+        noteAudioSource(audio, 'song-change');
         maybeStartVisualizer();
         updateButtonState();
       });
+      audio.addEventListener('loadstart', function () {
+        log('Audio loadstart event.', { src: audio.currentSrc || audio.src });
+        noteAudioSource(audio, 'song-change');
+      });
+      audio.addEventListener('loadedmetadata', function () {
+        log('Audio loadedmetadata event.', { src: audio.currentSrc || audio.src });
+        noteAudioSource(audio, 'song-change');
+      });
       audio.addEventListener('pause', function () {
         log('Audio pause event.');
+        changePreset('pause', 0);
         stopVisualizer();
         updateButtonState();
       });
@@ -1712,7 +1766,7 @@ function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables): string
         </figure>
         <section class="player-main" id="playerMain" data-current-title="${escapeHtml(playlist[0]?.title || album.title)}">
           <h1>Play Album</h1>
-          <p class="sub">${escapeHtml(album.title)} - play all.</p>
+          <p class="sub">${escapeHtml(album.title)}</p>
           <audio id="player" controls style="width:100%;"></audio>
           <div class="controls">
             <button class="primary" id="playBtn">Play Album</button>
