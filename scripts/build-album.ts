@@ -10,6 +10,15 @@ interface ThemeVariables {
   accent: string;
   surface: string;
   line: string;
+  bg0: string;
+  bg1: string;
+  bg2: string;
+  gold: string;
+  goldSoft: string;
+  violet: string;
+  violetSoft: string;
+  cyan: string;
+  text: string;
 }
 
 interface AlbumContents {
@@ -45,6 +54,15 @@ interface AlbumPalette {
   accent?: string;
   surface?: string;
   line?: string;
+  bg0?: string;
+  bg1?: string;
+  bg2?: string;
+  gold?: string;
+  goldSoft?: string;
+  violet?: string;
+  violetSoft?: string;
+  cyan?: string;
+  text?: string;
 }
 
 interface AlbumMetadata {
@@ -217,13 +235,22 @@ function formatDisplayDate(input: string, month: 'short' | 'long' = 'short'): st
 }
 
 const DEFAULT_THEME: ThemeVariables = {
-  bg: '#111319',
-  ink: '#e8f2ff',
-  hero: '#e8f2ff',
-  muted: '#99a3b3',
-  accent: '#32d5c8',
-  surface: 'rgba(255, 255, 255, 0.06)',
-  line: 'rgba(84, 213, 197, 0.34)'
+  bg: '#03030a',
+  ink: '#f8f1ff',
+  hero: '#e4a84a',
+  muted: '#bfa6ff',
+  accent: '#8b32ff',
+  surface: 'rgba(255, 255, 255, 0.03)',
+  line: 'rgba(164, 83, 255, 0.35)',
+  bg0: '#03030a',
+  bg1: '#09051a',
+  bg2: '#071f22',
+  gold: '#e4a84a',
+  goldSoft: '#ffd98a',
+  violet: '#8b32ff',
+  violetSoft: '#c45cff',
+  cyan: '#37f0e7',
+  text: '#f8f1ff'
 };
 
 function themeFromAlbumMeta(albumMeta: AlbumMetadata | null): ThemeVariables {
@@ -240,7 +267,16 @@ function themeFromAlbumMeta(albumMeta: AlbumMetadata | null): ThemeVariables {
     muted: p.muted ?? DEFAULT_THEME.muted,
     accent: p.accent ?? DEFAULT_THEME.accent,
     surface: p.surface ?? DEFAULT_THEME.surface,
-    line: p.line ?? DEFAULT_THEME.line
+    line: p.line ?? DEFAULT_THEME.line,
+    bg0: p.bg0 ?? p.bg ?? DEFAULT_THEME.bg0,
+    bg1: p.bg1 ?? DEFAULT_THEME.bg1,
+    bg2: p.bg2 ?? DEFAULT_THEME.bg2,
+    gold: p.gold ?? p.hero ?? DEFAULT_THEME.gold,
+    goldSoft: p.goldSoft ?? DEFAULT_THEME.goldSoft,
+    violet: p.violet ?? p.accent ?? DEFAULT_THEME.violet,
+    violetSoft: p.violetSoft ?? p.muted ?? DEFAULT_THEME.violetSoft,
+    cyan: p.cyan ?? DEFAULT_THEME.cyan,
+    text: p.text ?? p.ink ?? DEFAULT_THEME.text
   };
 }
 
@@ -313,6 +349,348 @@ function prepareContentAndMusic(album: ResolvedAlbum): void {
   console.log(`[OK] Wrote playlist: music/${playlistName}`);
 }
 
+function buildPartyModeLoaderScript(): string {
+  return `
+;(function () {
+  'use strict';
+
+  var button = null;
+  var target = null;
+  var canvas = null;
+  var audioContext = null;
+  var visualizer = null;
+  var connectedAudio = null;
+  var renderFrame = 0;
+  var isActive = false;
+  var presetNames = [];
+  var debugPrefix = '[Party Mode]';
+
+  function log(message, details) {
+    if (details === undefined) {
+      console.log(debugPrefix, message);
+      return;
+    }
+    console.log(debugPrefix, message, details);
+  }
+
+  function warn(message, details) {
+    if (details === undefined) {
+      console.warn(debugPrefix, message);
+      return;
+    }
+    console.warn(debugPrefix, message, details);
+  }
+
+  function getAudio() {
+    var audioElements = Array.prototype.slice.call(document.querySelectorAll('audio'));
+    return audioElements.find(function (audio) {
+      return !audio.paused && !audio.ended;
+    }) || null;
+  }
+
+  function getPartyTarget() {
+    return document.querySelector('.party-div, [data-party-div], #party-div');
+  }
+
+  function ensureStyles() {
+    if (document.getElementById('party-mode-styles')) {
+      return;
+    }
+
+    var style = document.createElement('style');
+    style.id = 'party-mode-styles';
+    style.textContent = [
+      '.party-mode-button{position:fixed;right:22px;bottom:22px;z-index:50;display:none;border:1px solid rgba(255,217,138,.58);border-radius:999px;padding:12px 18px;color:#05030c;background:linear-gradient(135deg,#8b32ff,#a332ff 55%,#37f0e7);font:800 14px Inter,system-ui,sans-serif;box-shadow:0 0 26px rgba(139,50,255,.62),0 0 54px rgba(55,240,231,.22);cursor:pointer}',
+      '.party-mode-button.is-visible{display:inline-flex}',
+      '.party-mode-button:hover{transform:translateY(-2px)}',
+      '.party-div{display:none;position:fixed;inset:0;z-index:0;background:#03030a}',
+      '.party-div.is-active{display:block}',
+      '.party-div canvas{display:block;width:100%;height:100%}',
+      'body.party-mode-active main,body.party-mode-active .panel,body.party-mode-active .wrap{position:relative;z-index:1}',
+      'body.party-mode-active main.panel{background:rgba(3,3,10,.9)}',
+      'body.party-mode-active{overflow:hidden}'
+    ].join('\\n');
+    document.head.appendChild(style);
+  }
+
+  function ensureButton() {
+    if (button) {
+      return button;
+    }
+
+    button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'party-mode-button';
+    button.textContent = 'Party Mode';
+    button.setAttribute('aria-label', 'Start party mode visualizer');
+    button.addEventListener('click', function () {
+      if (isActive) {
+        log('Button clicked. Stopping visualizer.');
+        stopPartyMode();
+        return;
+      }
+
+      var audio = getAudio();
+      if (!audio) {
+        log('Button clicked, but no active audio element was found.');
+        updateButtonState();
+        return;
+      }
+      log('Button clicked. Starting visualizer.', { src: audio.currentSrc || audio.src });
+      startPartyMode(audio);
+    });
+    document.body.appendChild(button);
+    return button;
+  }
+
+  function ensureCanvas() {
+    target = getPartyTarget();
+    if (!target) {
+      warn('No party target found. Add an element with class "party-div".');
+      return null;
+    }
+
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      target.innerHTML = '';
+      target.appendChild(canvas);
+    }
+    resizeCanvas();
+    return canvas;
+  }
+
+  function resizeCanvas() {
+    if (!canvas || !target) {
+      return;
+    }
+
+    var rect = target.getBoundingClientRect();
+    var width = Math.max(320, Math.floor(rect.width || window.innerWidth));
+    var height = Math.max(240, Math.floor(rect.height || window.innerHeight));
+    canvas.width = width;
+    canvas.height = height;
+    if (visualizer && visualizer.setRendererSize) {
+      visualizer.setRendererSize(width, height);
+    }
+  }
+
+  function getPreset() {
+    if (!window.butterchurnPresets || !window.butterchurnPresets.getPresets) {
+      return null;
+    }
+
+    var presets = window.butterchurnPresets.getPresets();
+    if (!presetNames.length) {
+      presetNames = Object.keys(presets);
+      log('Loaded presets.', { count: presetNames.length });
+    }
+    if (!presetNames.length) {
+      return null;
+    }
+
+    return presets[presetNames[Math.floor(Math.random() * presetNames.length)]];
+  }
+
+  function connectAudio(audio) {
+    if (connectedAudio === audio && visualizer) {
+      return;
+    }
+
+    if (!audioContext) {
+      var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextCtor) {
+        throw new Error('Web Audio is not supported in this browser.');
+      }
+      audioContext = new AudioContextCtor();
+      log('Created audio context.');
+    }
+
+    var source = audio.__partyModeSource;
+    if (!source) {
+      source = audioContext.createMediaElementSource(audio);
+      source.connect(audioContext.destination);
+      audio.__partyModeSource = source;
+      log('Connected media element source.', { src: audio.currentSrc || audio.src });
+      if (window.location.protocol === 'file:') {
+        warn('This page is running from file://. Some browsers block MediaElementAudioSource analysis for local files, which can make Butterchurn receive silence. Serve dist over http://localhost if the visualizer does not react.');
+      }
+    }
+
+    if (!visualizer) {
+      visualizer = window.butterchurn.createVisualizer(audioContext, canvas, {
+        width: canvas.width,
+        height: canvas.height,
+        textureRatio: 1
+      });
+      var preset = getPreset();
+      if (preset) {
+        visualizer.loadPreset(preset, 0);
+        log('Loaded initial preset.');
+      } else {
+        warn('No Butterchurn preset was available.');
+      }
+    }
+
+    visualizer.connectAudio(source);
+    connectedAudio = audio;
+    log('Audio connected to visualizer.');
+  }
+
+  function render() {
+    var audio = getAudio();
+    if (!isActive || !visualizer) {
+      stopPartyMode();
+      return;
+    }
+
+    if (audio) {
+      visualizer.render();
+    }
+    renderFrame = window.requestAnimationFrame(render);
+  }
+
+  async function startPartyMode(audio) {
+    if (!window.butterchurn || !window.butterchurn.createVisualizer) {
+      warn('Could not start: Butterchurn is unavailable.');
+      return;
+    }
+
+    if (!ensureCanvas()) {
+      warn('Could not start: add a div with class "party-div".');
+      return;
+    }
+
+    connectAudio(audio);
+    if (audioContext && audioContext.state === 'suspended') {
+      await audioContext.resume();
+    }
+
+    isActive = true;
+    target.classList.add('is-active');
+    document.body.classList.add('party-mode-active');
+    updateButtonState();
+    window.cancelAnimationFrame(renderFrame);
+    log('Party mode active.');
+    render();
+  }
+
+  function stopPartyMode() {
+    isActive = false;
+    window.cancelAnimationFrame(renderFrame);
+    if (target) {
+      target.classList.remove('is-active');
+    }
+    document.body.classList.remove('party-mode-active');
+    updateButtonState();
+    log('Party mode stopped.');
+  }
+
+  function updateButtonState() {
+    if (!button) {
+      return;
+    }
+
+    var audio = getAudio();
+    var targetExists = Boolean(getPartyTarget());
+    var shouldShow = Boolean((isActive || audio) && targetExists);
+    button.classList.toggle('is-visible', shouldShow);
+    log('Button state updated.', {
+      active: isActive,
+      audioPlaying: Boolean(audio),
+      targetFound: targetExists,
+      visible: shouldShow
+    });
+  }
+
+  function bindAudioEvents() {
+    Array.prototype.forEach.call(document.querySelectorAll('audio'), function (audio) {
+      if (audio.__partyModeBound) {
+        return;
+      }
+      audio.__partyModeBound = true;
+      audio.addEventListener('play', function () {
+        log('Audio play event.', { src: audio.currentSrc || audio.src });
+        updateButtonState();
+      });
+      audio.addEventListener('playing', function () {
+        log('Audio playing event.', { src: audio.currentSrc || audio.src });
+        updateButtonState();
+      });
+      audio.addEventListener('pause', function () {
+        log('Audio pause event.');
+        updateButtonState();
+      });
+      audio.addEventListener('ended', function () {
+        log('Audio ended event.');
+        updateButtonState();
+      });
+      audio.addEventListener('emptied', function () {
+        log('Audio emptied event.');
+        updateButtonState();
+      });
+    });
+  }
+
+  function boot() {
+    ensureStyles();
+    ensureButton();
+    bindAudioEvents();
+    log('Booted.', {
+      audioElements: document.querySelectorAll('audio').length,
+      targetFound: Boolean(getPartyTarget()),
+      butterchurnLoaded: Boolean(window.butterchurn && window.butterchurn.createVisualizer),
+      presetsLoaded: Boolean(window.butterchurnPresets && window.butterchurnPresets.getPresets)
+    });
+    updateButtonState();
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+  document.addEventListener('click', function (event) {
+    if (isActive && event.target === target) {
+      stopPartyMode();
+    }
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+      stopPartyMode();
+    }
+  });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+`;
+}
+
+function writePartyModeScript(): void {
+  const butterchurnPath = require.resolve('butterchurn/lib/butterchurn.min.js');
+  const presetsPath = require.resolve('butterchurn-presets/lib/butterchurnPresetsMinimal.min.js');
+  const wrapUmdLibrary = (libraryName: string, source: string): string => `
+;(function () {
+  var previousModule = window.module;
+  var previousExports = window.exports;
+  var module = { exports: {} };
+  var exports = module.exports;
+${source}
+  window.${libraryName} = window.${libraryName} || module.exports.default || module.exports;
+  window.module = previousModule;
+  window.exports = previousExports;
+})();
+`;
+
+  const parts = [
+    wrapUmdLibrary('butterchurn', fs.readFileSync(butterchurnPath, 'utf-8')),
+    wrapUmdLibrary('butterchurnPresets', fs.readFileSync(presetsPath, 'utf-8')),
+    buildPartyModeLoaderScript()
+  ];
+
+  fs.writeFileSync(path.join(DIST_DIR, 'party-mode.js'), `${parts.join('\n\n')}\n`, 'utf-8');
+  console.log('[OK] Wrote party mode bundle: party-mode.js');
+}
+
 
 function resetDistDirectory(): void {
   const purgeTargets = [
@@ -323,7 +701,8 @@ function resetDistDirectory(): void {
     'singles',
     'index.html',
     'START-HERE.html',
-    'play-album.html'
+    'play-album.html',
+    'party-mode.js'
   ];
 
   if (!fs.existsSync(DIST_DIR)) {
@@ -601,13 +980,13 @@ function resolvePrimaryAlbum(): ResolvedAlbum | null {
 function buildAlbumLandingHtml(album: ResolvedAlbum, theme: ThemeVariables): string {
   const songRows = album.tracks
     .map((track, index) => {
-      const releaseText = formatDisplayDate(track.releaseDate, 'short');
-
       return `
         <a class="song-row" href="${track.contentPathFromRoot}">
+          <img class="song-art" src="./content/${escapeHtml(track.trackFolder)}/${escapeHtml(track.artworkFileName)}" alt="${escapeHtml(track.title)} artwork" />
           <span class="song-index">${String(index + 1).padStart(2, '0')}</span>
-          <span class="song-title">${escapeHtml(track.title)}</span>
-          <span class="song-date">${escapeHtml(releaseText)}</span>
+          <span class="song-meta">
+            <span class="song-title">${escapeHtml(track.title)}</span>
+          </span>
         </a>`;
     })
     .join('');
@@ -621,6 +1000,8 @@ function buildAlbumLandingHtml(album: ResolvedAlbum, theme: ThemeVariables): str
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(album.title)} - Album</title>
     <style>
+      @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Inter:wght@400;600;700;800&display=swap');
+
       :root {
         --bg: ${theme.bg};
         --ink: ${theme.ink};
@@ -629,86 +1010,221 @@ function buildAlbumLandingHtml(album: ResolvedAlbum, theme: ThemeVariables): str
         --accent: ${theme.accent};
         --surface: ${theme.surface};
         --line: ${theme.line};
+        --bg-0: ${theme.bg0};
+        --bg-1: ${theme.bg1};
+        --bg-2: ${theme.bg2};
+        --gold: ${theme.gold};
+        --gold-soft: ${theme.goldSoft};
+        --violet: ${theme.violet};
+        --violet-soft: ${theme.violetSoft};
+        --cyan: ${theme.cyan};
+        --text: ${theme.text};
       }
       * { box-sizing: border-box; }
       body {
         margin: 0;
-        color: var(--ink);
-        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        min-height: 100vh;
+        color: var(--text);
+        font-family: "Inter", "Segoe UI", sans-serif;
         background:
-          radial-gradient(circle at 85% 20%, rgba(50, 213, 200, 0.2), transparent 46%),
-          radial-gradient(circle at 15% 10%, rgba(89, 102, 255, 0.2), transparent 35%),
-          var(--bg);
+          radial-gradient(circle at 24% 18%, rgba(139, 50, 255, 0.28), transparent 34%),
+          radial-gradient(circle at 80% 8%, rgba(55, 240, 231, 0.16), transparent 30%),
+          linear-gradient(135deg, var(--bg-0), var(--bg-1) 45%, var(--bg-2));
       }
-      .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 18px 56px; }
+      .wrap {
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 42px 28px 80px;
+      }
       .hero {
         display: grid;
-        grid-template-columns: minmax(260px, 410px) 1fr;
-        gap: 26px;
+        grid-template-columns: minmax(280px, 430px) 1fr;
+        gap: 64px;
         align-items: center;
-        margin-bottom: 28px;
+        min-height: 430px;
       }
       .cover {
-        border-radius: 18px;
+        position: relative;
+        border-radius: 24px;
         overflow: hidden;
-        border: 1px solid var(--line);
-        box-shadow: 0 25px 45px rgba(0, 0, 0, 0.45);
+        box-shadow:
+          0 0 0 3px rgba(228, 168, 74, 0.75),
+          0 0 0 6px rgba(139, 50, 255, 0.75),
+          0 0 48px rgba(139, 50, 255, 0.8),
+          0 0 120px rgba(55, 240, 231, 0.28);
       }
-      .cover img { width: 100%; display: block; aspect-ratio: 1/1; object-fit: cover; }
+      .cover img {
+        display: block;
+        width: 100%;
+        aspect-ratio: 1/1;
+        object-fit: cover;
+        filter: contrast(1.12) saturate(1.18);
+      }
+      .cover::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(135deg, rgba(255, 217, 138, 0.18), transparent 35%),
+          linear-gradient(315deg, rgba(55, 240, 231, 0.18), transparent 40%);
+        pointer-events: none;
+      }
       .meta h1 {
-        margin: 0 0 10px;
-        font-size: clamp(2.2rem, 5vw, 3.6rem);
-        line-height: 1.03;
-        color: var(--hero);
+        margin: 0 0 18px;
+        font-family: "Cinzel", Georgia, serif;
+        font-size: clamp(3.4rem, 7vw, 6.8rem);
+        font-weight: 800;
+        letter-spacing: 0;
+        line-height: 0.9;
+        color: var(--gold);
+        text-shadow:
+          0 0 18px rgba(228, 168, 74, 0.25),
+          0 0 46px rgba(139, 50, 255, 0.25);
       }
-      .meta p { margin: 0 0 16px; color: var(--muted); }
-      .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+      .meta p {
+        margin: 0 0 12px;
+        color: var(--violet-soft);
+        font-family: "Cormorant Garamond", Georgia, serif;
+        font-size: 1.25rem;
+        font-weight: 600;
+        text-shadow: 0 0 18px rgba(139, 50, 255, 0.45);
+      }
+      .actions {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 28px;
+      }
       .btn {
         display: inline-block;
-        padding: 11px 16px;
+        padding: 13px 24px;
+        border: 1px solid rgba(196, 92, 255, 0.45);
         border-radius: 999px;
         text-decoration: none;
-        color: var(--bg);
-        background: var(--accent);
-        font-weight: 700;
+        color: white;
+        background: rgba(255, 255, 255, 0.04);
+        font-size: 1rem;
+        font-weight: 800;
+        box-shadow: inset 0 0 18px rgba(139, 50, 255, 0.18);
+        transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+      }
+      .btn:hover {
+        transform: translateY(-2px);
+        border-color: var(--cyan);
+        box-shadow:
+          0 0 24px rgba(139, 50, 255, 0.55),
+          0 0 50px rgba(55, 240, 231, 0.22);
+      }
+      .btn:first-child {
+        color: #05030c;
+        background: linear-gradient(135deg, var(--violet), #a332ff 55%, var(--cyan));
+        border: 0;
+        box-shadow:
+          0 0 26px rgba(139, 50, 255, 0.65),
+          0 0 54px rgba(55, 240, 231, 0.22);
       }
       .btn.secondary {
-        color: var(--ink);
-        background: transparent;
-        border: 1px solid var(--line);
+        color: white;
       }
       .songs {
+        margin-top: 56px;
         border: 1px solid var(--line);
-        border-radius: 16px;
-        background: var(--surface);
+        border-radius: 22px;
+        background:
+          linear-gradient(180deg, rgba(13, 7, 31, 0.88), rgba(8, 5, 20, 0.88)),
+          rgba(255, 255, 255, 0.03);
+        box-shadow:
+          0 0 40px rgba(139, 50, 255, 0.18),
+          inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(14px);
         overflow: hidden;
       }
-      .songs h2 { margin: 0; padding: 14px 16px; font-size: 1.05rem; border-bottom: 1px solid var(--line); }
-      .song-row {
-        display: grid;
-        grid-template-columns: 54px 1fr auto;
-        gap: 14px;
-        padding: 12px 16px;
-        text-decoration: none;
-        color: var(--ink);
-        border-bottom: 1px solid var(--line);
+      .songs h2 {
+        margin: 0;
+        padding: 20px;
+        font-family: "Cinzel", Georgia, serif;
+        color: white;
+        font-size: 1.05rem;
+        font-weight: 700;
+        letter-spacing: 0;
       }
-      .song-row:hover { background: var(--surface); }
-      .song-row:last-child { border-bottom: 0; }
+      .song-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1px;
+        background: var(--line);
+        border-top: 1px solid var(--line);
+      }
+      .song-row {
+        position: relative;
+        display: block;
+        min-height: 230px;
+        text-decoration: none;
+        color: var(--text);
+        background: var(--bg-0);
+        overflow: hidden;
+        isolation: isolate;
+        transition: transform 160ms ease, filter 160ms ease;
+      }
+      .song-row:hover {
+        transform: translateY(-3px);
+        filter: brightness(1.08);
+        z-index: 1;
+      }
+      .song-art {
+        display: block;
+        width: 100%;
+        aspect-ratio: 1/1;
+        object-fit: cover;
+        filter: contrast(1.08) saturate(1.14);
+        transition: transform 180ms ease;
+      }
+      .song-row:hover .song-art { transform: scale(1.04); }
+      .song-meta {
+        position: absolute;
+        inset: auto 0 0;
+        display: grid;
+        gap: 8px;
+        padding: 42px 16px 16px;
+        background:
+          linear-gradient(180deg, transparent, rgba(3, 3, 10, 0.82) 42%, rgba(3, 3, 10, 0.96));
+      }
       .song-index {
-        font-size: 0.86rem;
-        color: var(--accent);
-        border: 1px solid var(--line);
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        z-index: 2;
+        width: 54px;
+        padding: 5px 0;
+        font-size: 0.9rem;
+        color: white;
+        border: 1px solid rgba(255, 217, 138, 0.62);
         border-radius: 999px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        height: 24px;
+        background: rgba(9, 5, 26, 0.78);
+        box-shadow:
+          inset 0 0 12px rgba(139, 50, 255, 0.34),
+          0 0 18px rgba(139, 50, 255, 0.42);
+        backdrop-filter: blur(6px);
       }
-      .song-title { font-weight: 700; }
-      .song-date { color: var(--muted); font-size: 0.9rem; }
+      .song-title {
+        color: white;
+        font-size: 1.05rem;
+        font-weight: 900;
+        line-height: 1.15;
+      }
       @media (max-width: 900px) {
-        .hero { grid-template-columns: 1fr; }
+        .wrap { padding: 32px 18px 56px; }
+        .hero {
+          grid-template-columns: 1fr;
+          gap: 32px;
+        }
+        .cover { max-width: 420px; }
+        .meta h1 { font-size: clamp(3rem, 18vw, 5.2rem); }
+        .song-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+        .song-row { min-height: 190px; }
       }
     </style>
   </head>
@@ -724,13 +1240,15 @@ function buildAlbumLandingHtml(album: ResolvedAlbum, theme: ThemeVariables): str
           <p>${escapeHtml(album.description)}</p>
           <div class="actions">
             <a class="btn" href="./play-album.html">Play Album</a>
-            <a class="btn secondary" href="./content/">Open Content Folder</a>
+            <a class="btn secondary" href="./music/">Open Music Folder</a>
           </div>
         </section>
       </section>
       <section class="songs">
         <h2>Songs</h2>
-        ${songRows}
+        <div class="song-grid">
+          ${songRows}
+        </div>
       </section>
     </main>
   </body>
@@ -742,7 +1260,8 @@ function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables): string
   const playlist = album.tracks.map((track) => ({
     title: track.title,
     src: track.audioPathFromRoot,
-    page: track.contentPathFromRoot
+    page: track.contentPathFromRoot,
+    artwork: `./content/${track.trackFolder}/${track.artworkFileName}`
   }));
 
   return `<!doctype html>
@@ -752,6 +1271,8 @@ function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables): string
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Play Album - ${escapeHtml(album.title)}</title>
     <style>
+      @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Inter:wght@400;600;700;800&display=swap');
+
       :root {
         --bg: ${theme.bg};
         --ink: ${theme.ink};
@@ -768,7 +1289,7 @@ function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables): string
         place-items: center;
         background: var(--bg);
         color: var(--ink);
-        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        font-family: "Inter", "Segoe UI", sans-serif;
       }
       .panel {
         width: min(760px, 94vw);
@@ -777,8 +1298,52 @@ function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables): string
         padding: 22px;
         background: var(--surface);
       }
-      h1 { margin-top: 0; color: var(--hero); }
-      .sub { color: var(--muted); margin-bottom: 14px; }
+      .player-layout {
+        display: grid;
+        grid-template-columns: minmax(180px, 280px) 1fr;
+        gap: 20px;
+        align-items: start;
+      }
+      .now-art {
+        margin: 0;
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        background: var(--bg);
+        box-shadow:
+          0 16px 34px rgba(0, 0, 0, 0.45),
+          0 0 34px rgba(124, 44, 255, 0.22);
+      }
+      .now-art img {
+        display: block;
+        width: 100%;
+        aspect-ratio: 1/1;
+        object-fit: cover;
+      }
+      .now-title {
+        margin: 12px 0 0;
+        color: var(--hero);
+        font-family: "Cinzel", Georgia, serif;
+        font-size: 1rem;
+        font-weight: 700;
+        line-height: 1.2;
+        text-align: center;
+      }
+      .player-main { min-width: 0; }
+      h1 {
+        margin-top: 0;
+        color: var(--hero);
+        font-family: "Cinzel", Georgia, serif;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+      .sub {
+        color: var(--muted);
+        margin-bottom: 14px;
+        font-family: "Cormorant Garamond", Georgia, serif;
+        font-size: 1.2rem;
+        font-weight: 600;
+      }
       .controls { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0 18px; }
       button, a {
         border: 1px solid ${theme.line};
@@ -793,27 +1358,45 @@ function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables): string
       ol { margin: 0; padding-left: 20px; }
       li { margin: 8px 0; }
       .now { color: var(--accent); font-weight: 700; }
+      @media (max-width: 680px) {
+        body { place-items: start center; padding: 16px 0; }
+        .player-layout { grid-template-columns: 1fr; }
+        .now-art { width: min(280px, 100%); margin: 0 auto; }
+      }
     </style>
   </head>
   <body>
     <main class="panel">
-      <h1>Play Album</h1>
-      <p class="sub">${escapeHtml(album.title)} - plays songs in order.</p>
-      <audio id="player" controls style="width:100%;"></audio>
-      <div class="controls">
-        <button class="primary" id="playBtn">Play Album</button>
-        <button id="nextBtn">Next Song</button>
-        <a href="./START-HERE.html">Back to Album</a>
-      </div>
-      <ol id="list"></ol>
+      <section class="player-layout">
+        <figure class="now-art">
+          <img id="nowArt" src="${escapeHtml(playlist[0]?.artwork || album.artworkPathFromRoot)}" alt="${escapeHtml(playlist[0]?.title || album.title)} artwork" />
+          <figcaption id="nowTitle" class="now-title">${escapeHtml(playlist[0]?.title || album.title)}</figcaption>
+        </figure>
+        <section class="player-main">
+          <h1>Play Album</h1>
+          <p class="sub">${escapeHtml(album.title)} - play all.</p>
+          <audio id="player" controls style="width:100%;"></audio>
+          <div class="controls">
+            <button class="primary" id="playBtn">Play Album</button>
+            <button id="nextBtn">Next Song</button>
+            <a href="./START-HERE.html">Back to Album</a>
+          </div>
+          <ol id="list"></ol>
+        </section>
+      </section>
     </main>
+    <div class="party-div" aria-hidden="true"></div>
     <script>
       const playlist = ${JSON.stringify(playlist)};
       const player = document.getElementById('player');
       const list = document.getElementById('list');
+      const nowArt = document.getElementById('nowArt');
+      const nowTitle = document.getElementById('nowTitle');
       const playBtn = document.getElementById('playBtn');
       const nextBtn = document.getElementById('nextBtn');
       let index = 0;
+
+      player.crossOrigin = 'anonymous';
 
       function renderList() {
         list.innerHTML = playlist.map((item, i) => {
@@ -825,6 +1408,9 @@ function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables): string
       function loadTrack(newIndex) {
         index = (newIndex + playlist.length) % playlist.length;
         player.src = playlist[index].src;
+        nowArt.src = playlist[index].artwork;
+        nowArt.alt = playlist[index].title + ' artwork';
+        nowTitle.textContent = playlist[index].title;
         renderList();
       }
 
@@ -847,6 +1433,7 @@ function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables): string
 
       loadTrack(0);
     </script>
+    <script src="./party-mode.js"></script>
   </body>
 </html>
 `;
@@ -867,6 +1454,8 @@ function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, currentIn
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(track.title)} - ${escapeHtml(album.title)}</title>
     <style>
+      @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Inter:wght@400;600;700;800&display=swap');
+
       :root {
         --bg: ${theme.bg};
         --ink: ${theme.ink};
@@ -881,7 +1470,7 @@ function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, currentIn
         min-height: 100vh;
         color: var(--ink);
         background: linear-gradient(180deg, var(--bg), var(--bg));
-        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        font-family: "Inter", "Segoe UI", sans-serif;
       }
       .wrap { max-width: 900px; margin: 0 auto; padding: 28px 18px 48px; }
       .back-link {
@@ -930,8 +1519,20 @@ function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, currentIn
         z-index: 2;
       }
       .cover img { width: 100%; display: block; aspect-ratio: 1/1; object-fit: cover; }
-      h1 { margin: 0 0 8px; color: var(--hero); }
-      p { color: var(--muted); margin: 0 0 14px; }
+      h1 {
+        margin: 0 0 8px;
+        color: var(--hero);
+        font-family: "Cinzel", Georgia, serif;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+      p {
+        color: var(--muted);
+        margin: 0 0 14px;
+        font-family: "Cormorant Garamond", Georgia, serif;
+        font-size: 1.18rem;
+        font-weight: 600;
+      }
       .song-info { display: grid; gap: 12px; }
       .actions {
         display: grid;
@@ -1014,11 +1615,12 @@ function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, currentIn
               <button id="playSong" class="primary">Play Song</button>
               <a href="${escapeHtml(secondaryActionHref)}">${escapeHtml(secondaryActionLabel)}</a>
             </div>
-            <audio id="player" controls src="../../${escapeHtml(track.audioPathFromRoot.replace(/^\.\//, ''))}"></audio>
+            <audio id="player" controls crossorigin="anonymous" src="../../${escapeHtml(track.audioPathFromRoot.replace(/^\.\//, ''))}"></audio>
           </section>
         </section>
       </section>
     </main>
+    <div class="party-div" aria-hidden="true"></div>
     <script>
       const player = document.getElementById('player');
       const playSong = document.getElementById('playSong');
@@ -1026,6 +1628,7 @@ function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, currentIn
         try { await player.play(); } catch (err) { console.error(err); }
       });
     </script>
+    <script src="../../party-mode.js"></script>
   </body>
 </html>
 `;
@@ -1040,6 +1643,7 @@ function writeGuidedEntryPoint(theme: ThemeVariables): void {
   }
 
   prepareContentAndMusic(album);
+  writePartyModeScript();
 
   const landing = buildAlbumLandingHtml(album, theme);
   fs.writeFileSync(path.join(DIST_DIR, 'START-HERE.html'), landing, 'utf-8');

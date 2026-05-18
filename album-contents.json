@@ -1,7 +1,8 @@
 {
   "files": [
     "START-HERE.html",
-    "play-album.html"
+    "play-album.html",
+    "party-mode.js"
   ],
   "directories": [
     "content",
