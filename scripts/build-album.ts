@@ -2052,6 +2052,9 @@ function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, currentIn
     ? '../../START-HERE.html'
     : `../${nextTrack.trackFolder}/index.html`;
   const secondaryActionLabel = isLastTrack ? 'Album' : 'Next Song';
+  const secondaryActionAttributes = isLastTrack
+    ? ''
+    : ' id="secondaryAction"';
 
   return `<!doctype html>
 <html lang="en">
@@ -2219,7 +2222,7 @@ function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, currentIn
             <p>From ${escapeHtml(album.title)}</p>
             <div class="actions">
               <button id="playSong" class="primary">Play Song</button>
-              <a href="${escapeHtml(secondaryActionHref)}">${escapeHtml(secondaryActionLabel)}</a>
+              <a${secondaryActionAttributes} href="${escapeHtml(secondaryActionHref)}">${escapeHtml(secondaryActionLabel)}</a>
             </div>
             <audio id="player" controls src="../../${escapeHtml(track.audioPathFromRoot.replace(/^\.\//, ''))}"></audio>
           </section>
@@ -2231,7 +2234,9 @@ function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, currentIn
     <script>
       const player = document.getElementById('player');
       const playSong = document.getElementById('playSong');
+      const secondaryAction = document.getElementById('secondaryAction');
       const audioKey = ${JSON.stringify(track.audioDataKey)};
+      const shouldAutoplay = new URLSearchParams(window.location.search).get('autoplay') === '1';
 
       function base64ToBlobUrl(base64) {
         const binary = atob(base64);
@@ -2251,9 +2256,30 @@ function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, currentIn
         player.src = base64ToBlobUrl(window.__albumAudioData[audioKey]);
       }
 
+      function isPlayerActivelyPlaying() {
+        return Boolean(!player.paused && !player.ended && player.readyState > 0);
+      }
+
       playSong.addEventListener('click', async () => {
         try { await player.play(); } catch (err) { console.error(err); }
       });
+
+      if (secondaryAction) {
+        secondaryAction.addEventListener('click', (event) => {
+          if (!isPlayerActivelyPlaying()) {
+            return;
+          }
+
+          event.preventDefault();
+          const nextUrl = new URL(secondaryAction.href);
+          nextUrl.searchParams.set('autoplay', '1');
+          window.location.href = nextUrl.toString();
+        });
+      }
+
+      if (shouldAutoplay) {
+        player.play().catch((err) => console.error(err));
+      }
     </script>
     <script src="../../party-mode.js"></script>
   </body>
