@@ -6,6 +6,7 @@
   "scripts": {
     "build-album": "ts-node scripts/build-album.ts",
     "extract-palette": "ts-node scripts/extract-palette.ts",
+    "write-dist": "ts-node scripts/write-dist.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
