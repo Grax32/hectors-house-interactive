@@ -381,6 +381,15 @@ function buildPartyModeLoaderScript(): string {
   var isRendering = false;
   var presetNames = [];
   var debugPrefix = '[Party Mode]';
+  var activeProfile = null;
+  var profilePromise = null;
+  var lastRenderTime = 0;
+
+  var performanceProfiles = {
+    low: { name: 'low', label: 'Low', width: 640, height: 360, fps: 24, textureRatio: 1 },
+    medium: { name: 'medium', label: 'Medium', width: 960, height: 540, fps: 30, textureRatio: 1 },
+    high: { name: 'high', label: 'High', width: 1280, height: 720, fps: 60, textureRatio: 1 }
+  };
 
   function log(message, details) {
     if (details === undefined) {
@@ -428,7 +437,7 @@ function buildPartyModeLoaderScript(): string {
       '.party-mode-button:hover{transform:translateY(-2px)}',
       '.party-div{display:none;position:fixed;inset:0;z-index:0;background:#03030a}',
       '.party-div.is-active{display:block}',
-      '.party-div canvas{display:block;width:100%;height:100%}',
+      '.party-div canvas{display:block;width:100%;height:100%;object-fit:cover}',
       'body.party-mode-active main:not([data-view="mini"]):not([data-view="micro"]),body.party-mode-active .wrap{position:relative;z-index:1}',
       'body.party-mode-active .panel[data-view="mini"],body.party-mode-active .panel[data-view="micro"]{position:fixed;left:24px;bottom:24px;z-index:1}',
       'body.party-mode-active main.panel{background:rgba(3,3,10,.9)}',
@@ -471,18 +480,132 @@ function buildPartyModeLoaderScript(): string {
   }
 
   function resizeCanvas() {
-    if (!canvas || !target) {
+    if (!canvas || !target || !activeProfile) {
       return;
     }
 
-    var rect = target.getBoundingClientRect();
-    var width = Math.max(320, Math.floor(rect.width || window.innerWidth));
-    var height = Math.max(240, Math.floor(rect.height || window.innerHeight));
-    canvas.width = width;
-    canvas.height = height;
+    canvas.width = activeProfile.width;
+    canvas.height = activeProfile.height;
     if (visualizer && visualizer.setRendererSize) {
-      visualizer.setRendererSize(width, height);
+      visualizer.setRendererSize(activeProfile.width, activeProfile.height);
     }
+  }
+
+  function getStoredProfileOverride() {
+    var stored = localStorage.getItem('partyModePerformance');
+    return performanceProfiles[stored] || null;
+  }
+
+  function measureRefreshRate() {
+    if (!window.requestAnimationFrame || !window.performance) {
+      return Promise.resolve(30);
+    }
+
+    return new Promise(function (resolve) {
+      var times = [];
+      var maxFrames = 45;
+      var timeout = window.setTimeout(function () {
+        resolve(30);
+      }, 1200);
+
+      function sample(timestamp) {
+        times.push(timestamp);
+        if (times.length < maxFrames) {
+          window.requestAnimationFrame(sample);
+          return;
+        }
+
+        window.clearTimeout(timeout);
+        var intervals = [];
+        for (var i = 1; i < times.length; i += 1) {
+          var interval = times[i] - times[i - 1];
+          if (interval > 0 && interval < 100) {
+            intervals.push(interval);
+          }
+        }
+
+        if (!intervals.length) {
+          resolve(30);
+          return;
+        }
+
+        intervals.sort(function (a, b) { return a - b; });
+        var median = intervals[Math.floor(intervals.length / 2)];
+        resolve(Math.round(1000 / median));
+      }
+
+      window.requestAnimationFrame(sample);
+    });
+  }
+
+  function getHardwareScore() {
+    var cores = navigator.hardwareConcurrency || 2;
+    var memory = navigator.deviceMemory || 4;
+    var dpr = Math.min(window.devicePixelRatio || 1, 3);
+    var viewportPixels = window.innerWidth * window.innerHeight * dpr * dpr;
+    var score = 0;
+
+    if (cores >= 8) {
+      score += 2;
+    } else if (cores >= 4) {
+      score += 1;
+    }
+
+    if (memory >= 8) {
+      score += 2;
+    } else if (memory >= 4) {
+      score += 1;
+    }
+
+    if (viewportPixels <= 1920 * 1080) {
+      score += 1;
+    } else if (viewportPixels > 3840 * 2160) {
+      score -= 1;
+    }
+
+    return score;
+  }
+
+  function choosePerformanceProfile(refreshRate) {
+    var score = getHardwareScore();
+
+    if (refreshRate >= 55 && score >= 3) {
+      return performanceProfiles.high;
+    }
+
+    if (refreshRate >= 29 && score >= 1) {
+      return performanceProfiles.medium;
+    }
+
+    return performanceProfiles.low;
+  }
+
+  async function getPerformanceProfile() {
+    var override = getStoredProfileOverride();
+    if (override) {
+      activeProfile = override;
+      return activeProfile;
+    }
+
+    if (activeProfile) {
+      return activeProfile;
+    }
+
+    if (!profilePromise) {
+      profilePromise = measureRefreshRate().then(function (refreshRate) {
+        activeProfile = choosePerformanceProfile(refreshRate);
+        log('Selected performance profile.', {
+          profile: activeProfile.name,
+          resolution: activeProfile.width + 'x' + activeProfile.height,
+          fps: activeProfile.fps,
+          measuredRefreshRate: refreshRate,
+          hardwareScore: getHardwareScore()
+        });
+        return activeProfile;
+      });
+    }
+
+    return profilePromise;
   }
 
   function getPreset() {
@@ -533,10 +656,11 @@ function buildPartyModeLoaderScript(): string {
     }
 
     if (!visualizer) {
+      var profile = activeProfile || performanceProfiles.low;
       visualizer = window.butterchurn.createVisualizer(audioContext, canvas, {
-        width: canvas.width,
-        height: canvas.height,
-        textureRatio: 1
+        width: profile.width,
+        height: profile.height,
+        textureRatio: profile.textureRatio
       });
       var preset = getPreset();
       if (preset) {
@@ -560,7 +684,12 @@ function buildPartyModeLoaderScript(): string {
       return;
     }
 
-    visualizer.render();
+    var now = window.performance ? window.performance.now() : Date.now();
+    var frameInterval = 1000 / (activeProfile || performanceProfiles.low).fps;
+    if (now - lastRenderTime >= frameInterval - 1) {
+      visualizer.render();
+      lastRenderTime = now;
+    }
     renderFrame = window.requestAnimationFrame(render);
   }
 
@@ -600,6 +729,9 @@ function buildPartyModeLoaderScript(): string {
       return;
     }
 
+    await getPerformanceProfile();
+    resizeCanvas();
+
     try {
       connectAudio(audio);
     } catch (error) {
@@ -621,7 +753,12 @@ function buildPartyModeLoaderScript(): string {
     document.body.classList.add('party-mode-active');
     updateButtonState();
     window.cancelAnimationFrame(renderFrame);
-    log('Party visualizer started.');
+    lastRenderTime = 0;
+    log('Party visualizer started.', {
+      profile: activeProfile && activeProfile.name,
+      resolution: activeProfile && (activeProfile.width + 'x' + activeProfile.height),
+      fps: activeProfile && activeProfile.fps
+    });
     render();
   }
 
@@ -644,12 +781,15 @@ function buildPartyModeLoaderScript(): string {
     var audio = getAudio();
     var targetExists = Boolean(getPartyTarget());
     button.classList.toggle('is-active', isEnabled);
-    button.textContent = isEnabled ? 'Party Mode: ON' : 'Party Mode: OFF';
+    button.textContent = isEnabled
+      ? 'Party Mode: ON' + (activeProfile ? ' - ' + activeProfile.label : '')
+      : 'Party Mode: OFF';
     log('Button state updated.', {
       enabled: isEnabled,
       rendering: isRendering,
       audioPlaying: isAudioPlaying(audio),
       targetFound: targetExists,
+      profile: activeProfile && activeProfile.name,
       visible: true
     });
   }
@@ -696,7 +836,8 @@ function buildPartyModeLoaderScript(): string {
       audioElements: document.querySelectorAll('audio').length,
       targetFound: Boolean(getPartyTarget()),
       butterchurnLoaded: Boolean(window.butterchurn && window.butterchurn.createVisualizer),
-      presetsLoaded: Boolean(window.butterchurnPresets && window.butterchurnPresets.getPresets)
+      presetsLoaded: Boolean(window.butterchurnPresets && window.butterchurnPresets.getPresets),
+      storedProfile: localStorage.getItem('partyModePerformance') || 'auto'
     });
     updateButtonState();
     maybeStartVisualizer();
