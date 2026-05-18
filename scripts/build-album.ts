@@ -27,6 +27,10 @@ interface AlbumContents {
   copy?: CopyRule[];
 }
 
+interface BuildOptions {
+  includeWavFiles: boolean;
+}
+
 interface CopyRule {
   from: string;
   to: string;
@@ -292,7 +296,7 @@ function getFfmpegBinaryPath(): string | null {
   }
 }
 
-function prepareContentAndMusic(album: ResolvedAlbum): void {
+function prepareContentAndMusic(album: ResolvedAlbum, options: BuildOptions): void {
   const ffmpegPath = getFfmpegBinaryPath();
   if (!ffmpegPath) {
     throw new Error('ffmpeg-static is required to generate MP3 files');
@@ -300,11 +304,12 @@ function prepareContentAndMusic(album: ResolvedAlbum): void {
 
   const contentRoot = path.join(DIST_DIR, 'content');
   const musicRoot = path.join(DIST_DIR, 'music');
-  const musicWavRoot = path.join(musicRoot, 'wav');
   const musicAudioDataRoot = path.join(musicRoot, 'audio-data');
   fs.mkdirSync(contentRoot, { recursive: true });
   fs.mkdirSync(musicRoot, { recursive: true });
-  fs.mkdirSync(musicWavRoot, { recursive: true });
+  if (options.includeWavFiles) {
+    fs.mkdirSync(path.join(musicRoot, 'wav'), { recursive: true });
+  }
   fs.mkdirSync(musicAudioDataRoot, { recursive: true });
 
   if (album.albumArtworkSourcePath && fs.existsSync(album.albumArtworkSourcePath) && album.albumArtworkFileName) {
@@ -322,8 +327,10 @@ function prepareContentAndMusic(album: ResolvedAlbum): void {
       fs.copyFileSync(track.artworkSourcePath, path.join(trackContentDir, track.artworkFileName));
     }
 
-    const wavOutputPath = path.join(musicWavRoot, track.wavOutputFileName);
-    fs.copyFileSync(track.wavSourcePath, wavOutputPath);
+    if (options.includeWavFiles) {
+      const wavOutputPath = path.join(musicRoot, 'wav', track.wavOutputFileName);
+      fs.copyFileSync(track.wavSourcePath, wavOutputPath);
+    }
 
     const mp3OutputPath = path.join(musicRoot, track.mp3OutputFileName);
     const args = ['-y', '-i', track.wavSourcePath];
@@ -2217,7 +2224,7 @@ function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, currentIn
 `;
 }
 
-function writeGuidedEntryPoint(theme: ThemeVariables): void {
+function writeGuidedEntryPoint(theme: ThemeVariables, options: BuildOptions): void {
   const album = resolvePrimaryAlbum();
   if (!album) {
     const fallback = `<!doctype html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Album</title></head><body><h1>No album found</h1><p>Add media under content-files/music/albums or place audio files in content-files and run build again.</p></body></html>`;
@@ -2225,7 +2232,7 @@ function writeGuidedEntryPoint(theme: ThemeVariables): void {
     return;
   }
 
-  prepareContentAndMusic(album);
+  prepareContentAndMusic(album, options);
   writePartyModeScript();
 
   const landing = buildAlbumLandingHtml(album, theme);
@@ -2304,7 +2311,15 @@ function validateDistContents(albumContents: AlbumContents): void {
  */
 async function buildAlbum(): Promise<void> {
   try {
+    const isLiteBuild = process.argv.includes('--lite');
+    const options: BuildOptions = {
+      includeWavFiles: !isLiteBuild
+    };
+
     console.log('[INFO] Starting album build process...\n');
+    if (isLiteBuild) {
+      console.log('[INFO] Lite build enabled: skipping WAV files in dist/music/wav.\n');
+    }
 
     // Step 1: Read album contents config
     console.log('[INFO] Reading album-contents.json...');
@@ -2340,7 +2355,7 @@ async function buildAlbum(): Promise<void> {
 
     // Step 6: Create packaged content, media, and guided pages
     console.log('[INFO] Writing guided root and song pages...');
-    writeGuidedEntryPoint(theme);
+    writeGuidedEntryPoint(theme, options);
     console.log('');
 
     // Step 7: Validate dist contents

@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build-album": "ts-node scripts/build-album.ts",
+    "build-album-lite": "ts-node scripts/build-album.ts --lite",
     "extract-palette": "ts-node scripts/extract-palette.ts",
     "write-dist": "ts-node scripts/write-dist.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
