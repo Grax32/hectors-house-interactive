@@ -444,11 +444,11 @@ function buildPartyModeLoaderScript(): string {
       '.party-mode-button{position:fixed;right:22px;bottom:22px;z-index:50;display:inline-flex;border:1px solid rgba(255,217,138,.58);border-radius:999px;padding:12px 18px;color:#05030c;background:linear-gradient(135deg,#8b32ff,#a332ff 55%,#37f0e7);font:800 14px Inter,system-ui,sans-serif;box-shadow:0 0 26px rgba(139,50,255,.62),0 0 54px rgba(55,240,231,.22);cursor:pointer}',
       '.party-mode-button:not(.is-active){color:#f8f1ff;background:rgba(3,3,10,.82);box-shadow:inset 0 0 18px rgba(139,50,255,.18)}',
       '.party-mode-button:hover{transform:translateY(-2px)}',
-      '.party-div{display:none;position:fixed;inset:0;z-index:0;background:#03030a}',
+      '.party-div{display:none;position:fixed;inset:0;z-index:1;background:transparent;opacity:.75;pointer-events:none}',
       '.party-div.is-active{display:block}',
       '.party-div canvas{display:block;width:100%;height:100%;object-fit:cover}',
-      'body.party-mode-active main:not([data-view="mini"]):not([data-view="micro"]),body.party-mode-active .wrap{position:relative;z-index:1}',
-      'body.party-mode-active .panel[data-view="mini"],body.party-mode-active .panel[data-view="micro"]{position:fixed;left:24px;bottom:24px;z-index:1}',
+      'body.party-mode-active main:not([data-view="mini"]):not([data-view="micro"]),body.party-mode-active .wrap{position:relative;z-index:2}',
+      'body.party-mode-active .panel[data-view="mini"],body.party-mode-active .panel[data-view="micro"]{position:fixed;left:24px;bottom:24px;z-index:2}',
       'body.party-mode-active main.panel{background:rgba(3,3,10,.9)}',
       'body.party-mode-active{overflow:hidden}'
     ].join('\\n');
@@ -1239,7 +1239,7 @@ function resolvePrimaryAlbum(): ResolvedAlbum | null {
   };
 }
 
-function buildAlbumLandingHtml(album: ResolvedAlbum, theme: ThemeVariables): string {
+function buildAlbumLandingHtml(album: ResolvedAlbum, theme: ThemeVariables, options: BuildOptions): string {
   const songRows = album.tracks
     .map((track, index) => {
       return `
@@ -1254,6 +1254,9 @@ function buildAlbumLandingHtml(album: ResolvedAlbum, theme: ThemeVariables): str
     .join('');
 
   const releaseText = formatDisplayDate(album.releaseDate, 'long');
+  const musicFolderButton = options.includeWavFiles
+    ? '<a class="btn secondary" href="./music/">Open Music Folder</a>'
+    : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -1501,8 +1504,8 @@ function buildAlbumLandingHtml(album: ResolvedAlbum, theme: ThemeVariables): str
           <p>${escapeHtml(releaseText)} | ${album.tracks.length} tracks</p>
           <p>${escapeHtml(album.description)}</p>
           <div class="actions">
-            <a class="btn" href="./play-album.html">Play Album</a>
-            <a class="btn secondary" href="./music/">Open Music Folder</a>
+            <a class="btn" href="./play-album.html?autoplay=1">Play Album</a>
+            ${musicFolderButton}
           </div>
         </section>
       </section>
@@ -1554,9 +1557,27 @@ function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables): string
         min-height: 100vh;
         display: grid;
         place-items: center;
-        background: var(--bg);
+        background: #000;
         color: var(--ink);
         font-family: "Inter", "Segoe UI", sans-serif;
+      }
+      .art-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        overflow: hidden;
+        background: #000;
+        pointer-events: none;
+      }
+      .art-backdrop img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        opacity: 0.75;
+      }
+      body.party-mode-active .art-backdrop {
+        display: block;
       }
       body.player-view-mini {
         display: block;
@@ -1759,6 +1780,9 @@ function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables): string
     </style>
   </head>
   <body>
+    <div class="art-backdrop" aria-hidden="true">
+      <img id="backdropArt" src="${escapeHtml(playlist[0]?.artwork || album.artworkPathFromRoot)}" alt="" />
+    </div>
     <main class="panel" id="playerPanel" data-view="standard">
       <nav class="view-switcher" aria-label="Player view">
         <button class="view-btn" type="button" data-view="micro" aria-label="Micro view" title="Micro">−</button>
@@ -1792,11 +1816,13 @@ ${audioDataScripts}
       const playerPanel = document.getElementById('playerPanel');
       const playerMain = document.getElementById('playerMain');
       const list = document.getElementById('list');
+      const backdropArt = document.getElementById('backdropArt');
       const nowArt = document.getElementById('nowArt');
       const nowTitle = document.getElementById('nowTitle');
       const playBtn = document.getElementById('playBtn');
       const nextBtn = document.getElementById('nextBtn');
       const viewButtons = Array.from(document.querySelectorAll('.view-btn'));
+      const shouldAutoplay = new URLSearchParams(window.location.search).get('autoplay') === '1';
       let index = 0;
 
       window.__albumAudioData = window.__albumAudioData || {};
@@ -1842,6 +1868,7 @@ ${audioDataScripts}
         player.src = await getPlayableSrc(playlist[index]);
         nowArt.src = playlist[index].artwork;
         nowArt.alt = playlist[index].title + ' artwork';
+        backdropArt.src = playlist[index].artwork;
         nowTitle.textContent = playlist[index].title;
         playerMain.dataset.currentTitle = playlist[index].title;
         renderList();
@@ -1908,6 +1935,10 @@ ${audioDataScripts}
         player.pause();
       }
 
+      function isPlayerActivelyPlaying() {
+        return Boolean(!player.paused && !player.ended && player.readyState > 0);
+      }
+
       playerPanel.addEventListener('click', async (event) => {
         if (playerPanel.dataset.view !== 'micro') {
           return;
@@ -1919,7 +1950,7 @@ ${audioDataScripts}
       });
 
       async function previousTrack() {
-        const wasPlaying = !player.paused;
+        const wasPlaying = isPlayerActivelyPlaying();
         await loadTrack(index - 1);
         if (wasPlaying) {
           try { await player.play(); } catch (err) { console.error(err); }
@@ -1927,7 +1958,7 @@ ${audioDataScripts}
       }
 
       async function nextTrack() {
-        const wasPlaying = !player.paused;
+        const wasPlaying = isPlayerActivelyPlaying();
         await loadTrack(index + 1);
         if (wasPlaying) {
           try { await player.play(); } catch (err) { console.error(err); }
@@ -1999,7 +2030,13 @@ ${audioDataScripts}
         try { await player.play(); } catch (err) { console.error(err); }
       });
 
-      loadTrack(0).catch((err) => console.error(err));
+      loadTrack(0)
+        .then(async () => {
+          if (shouldAutoplay) {
+            try { await player.play(); } catch (err) { console.error(err); }
+          }
+        })
+        .catch((err) => console.error(err));
       setView(localStorage.getItem('albumPlayerView') || 'standard');
     </script>
     <script src="./party-mode.js"></script>
@@ -2235,7 +2272,7 @@ function writeGuidedEntryPoint(theme: ThemeVariables, options: BuildOptions): vo
   prepareContentAndMusic(album, options);
   writePartyModeScript();
 
-  const landing = buildAlbumLandingHtml(album, theme);
+  const landing = buildAlbumLandingHtml(album, theme, options);
   fs.writeFileSync(path.join(DIST_DIR, 'START-HERE.html'), landing, 'utf-8');
   console.log('[OK] Wrote guided entry file: START-HERE.html');
 
