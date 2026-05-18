@@ -86,6 +86,8 @@ interface ResolvedTrack {
   wavOutputFileName: string;
   mp3OutputFileName: string;
   audioPathFromRoot: string;
+  audioDataPathFromRoot: string;
+  audioDataKey: string;
   contentPathFromRoot: string;
 }
 
@@ -299,9 +301,11 @@ function prepareContentAndMusic(album: ResolvedAlbum): void {
   const contentRoot = path.join(DIST_DIR, 'content');
   const musicRoot = path.join(DIST_DIR, 'music');
   const musicWavRoot = path.join(musicRoot, 'wav');
+  const musicAudioDataRoot = path.join(musicRoot, 'audio-data');
   fs.mkdirSync(contentRoot, { recursive: true });
   fs.mkdirSync(musicRoot, { recursive: true });
   fs.mkdirSync(musicWavRoot, { recursive: true });
+  fs.mkdirSync(musicAudioDataRoot, { recursive: true });
 
   if (album.albumArtworkSourcePath && fs.existsSync(album.albumArtworkSourcePath) && album.albumArtworkFileName) {
     fs.copyFileSync(album.albumArtworkSourcePath, path.join(contentRoot, album.albumArtworkFileName));
@@ -339,6 +343,17 @@ function prepareContentAndMusic(album: ResolvedAlbum): void {
     args.push('-c:a', 'libmp3lame', '-b:a', '192k', '-id3v2_version', '3', mp3OutputPath);
     execFileSync(ffmpegPath, args, { stdio: 'pipe' });
 
+    const audioDataBase64 = fs.readFileSync(mp3OutputPath).toString('base64');
+    const audioDataScript = [
+      'window.__albumAudioData = window.__albumAudioData || {};',
+      `window.__albumAudioData[${JSON.stringify(track.audioDataKey)}] = ${JSON.stringify(audioDataBase64)};`
+    ].join('\n');
+    fs.writeFileSync(
+      path.join(DIST_DIR, track.audioDataPathFromRoot.replace(/^\.\//, '')),
+      `${audioDataScript}\n`,
+      'utf-8'
+    );
+
     playlistLines.push(`#EXTINF:-1,${track.title}`);
     playlistLines.push(track.mp3OutputFileName);
     console.log(`[OK] Packaged track: ${track.trackFolder}`);
@@ -360,8 +375,10 @@ function buildPartyModeLoaderScript(): string {
   var audioContext = null;
   var visualizer = null;
   var connectedAudio = null;
+  var connectedNode = null;
   var renderFrame = 0;
-  var isActive = false;
+  var isEnabled = localStorage.getItem('partyModeEnabled') === 'true';
+  var isRendering = false;
   var presetNames = [];
   var debugPrefix = '[Party Mode]';
 
@@ -381,10 +398,16 @@ function buildPartyModeLoaderScript(): string {
     console.warn(debugPrefix, message, details);
   }
 
+  function isAudioPlaying(audio) {
+    return Boolean(audio && !audio.paused && !audio.ended && audio.readyState > 0);
+  }
+
   function getAudio() {
     var audioElements = Array.prototype.slice.call(document.querySelectorAll('audio'));
     return audioElements.find(function (audio) {
-      return !audio.paused && !audio.ended;
+      return isAudioPlaying(audio);
+    }) || audioElements.find(function (audio) {
+      return Boolean((audio.currentSrc || audio.src) && !audio.ended);
     }) || null;
   }
 
@@ -400,13 +423,14 @@ function buildPartyModeLoaderScript(): string {
     var style = document.createElement('style');
     style.id = 'party-mode-styles';
     style.textContent = [
-      '.party-mode-button{position:fixed;right:22px;bottom:22px;z-index:50;display:none;border:1px solid rgba(255,217,138,.58);border-radius:999px;padding:12px 18px;color:#05030c;background:linear-gradient(135deg,#8b32ff,#a332ff 55%,#37f0e7);font:800 14px Inter,system-ui,sans-serif;box-shadow:0 0 26px rgba(139,50,255,.62),0 0 54px rgba(55,240,231,.22);cursor:pointer}',
-      '.party-mode-button.is-visible{display:inline-flex}',
+      '.party-mode-button{position:fixed;right:22px;bottom:22px;z-index:50;display:inline-flex;border:1px solid rgba(255,217,138,.58);border-radius:999px;padding:12px 18px;color:#05030c;background:linear-gradient(135deg,#8b32ff,#a332ff 55%,#37f0e7);font:800 14px Inter,system-ui,sans-serif;box-shadow:0 0 26px rgba(139,50,255,.62),0 0 54px rgba(55,240,231,.22);cursor:pointer}',
+      '.party-mode-button:not(.is-active){color:#f8f1ff;background:rgba(3,3,10,.82);box-shadow:inset 0 0 18px rgba(139,50,255,.18)}',
       '.party-mode-button:hover{transform:translateY(-2px)}',
       '.party-div{display:none;position:fixed;inset:0;z-index:0;background:#03030a}',
       '.party-div.is-active{display:block}',
       '.party-div canvas{display:block;width:100%;height:100%}',
-      'body.party-mode-active main,body.party-mode-active .panel,body.party-mode-active .wrap{position:relative;z-index:1}',
+      'body.party-mode-active main:not([data-view="mini"]):not([data-view="micro"]),body.party-mode-active .wrap{position:relative;z-index:1}',
+      'body.party-mode-active .panel[data-view="mini"],body.party-mode-active .panel[data-view="micro"]{position:fixed;left:24px;bottom:24px;z-index:1}',
       'body.party-mode-active main.panel{background:rgba(3,3,10,.9)}',
       'body.party-mode-active{overflow:hidden}'
     ].join('\\n');
@@ -421,23 +445,10 @@ function buildPartyModeLoaderScript(): string {
     button = document.createElement('button');
     button.type = 'button';
     button.className = 'party-mode-button';
-    button.textContent = 'Party Mode';
-    button.setAttribute('aria-label', 'Start party mode visualizer');
+    button.textContent = 'Party Mode: OFF';
+    button.setAttribute('aria-label', 'Toggle party mode');
     button.addEventListener('click', function () {
-      if (isActive) {
-        log('Button clicked. Stopping visualizer.');
-        stopPartyMode();
-        return;
-      }
-
-      var audio = getAudio();
-      if (!audio) {
-        log('Button clicked, but no active audio element was found.');
-        updateButtonState();
-        return;
-      }
-      log('Button clicked. Starting visualizer.', { src: audio.currentSrc || audio.src });
-      startPartyMode(audio);
+      setPartyModeEnabled(!isEnabled);
     });
     document.body.appendChild(button);
     return button;
@@ -510,9 +521,14 @@ function buildPartyModeLoaderScript(): string {
       source = audioContext.createMediaElementSource(audio);
       source.connect(audioContext.destination);
       audio.__partyModeSource = source;
-      log('Connected media element source.', { src: audio.currentSrc || audio.src });
-      if (window.location.protocol === 'file:') {
-        warn('This page is running from file://. Some browsers block MediaElementAudioSource analysis for local files, which can make Butterchurn receive silence. Serve dist over http://localhost if the visualizer does not react.');
+    }
+    log('Connected media element source.', { src: audio.currentSrc || audio.src });
+
+    if (connectedNode && connectedNode !== source && visualizer.disconnectAudio) {
+      try {
+        visualizer.disconnectAudio(connectedNode);
+      } catch (error) {
+        warn('Could not disconnect previous audio source.', error);
       }
     }
 
@@ -533,56 +549,91 @@ function buildPartyModeLoaderScript(): string {
 
     visualizer.connectAudio(source);
     connectedAudio = audio;
+    connectedNode = source;
     log('Audio connected to visualizer.');
   }
 
   function render() {
     var audio = getAudio();
-    if (!isActive || !visualizer) {
-      stopPartyMode();
+    if (!isEnabled || !isRendering || !isAudioPlaying(audio) || !visualizer) {
+      isRendering = false;
       return;
     }
 
-    if (audio) {
-      visualizer.render();
-    }
+    visualizer.render();
     renderFrame = window.requestAnimationFrame(render);
   }
 
-  async function startPartyMode(audio) {
+  function setPartyModeEnabled(nextValue) {
+    isEnabled = Boolean(nextValue);
+    localStorage.setItem('partyModeEnabled', String(isEnabled));
+    log(isEnabled ? 'Party mode enabled.' : 'Party mode disabled.');
+    if (!isEnabled) {
+      stopVisualizer();
+    } else {
+      maybeStartVisualizer();
+    }
+    updateButtonState();
+  }
+
+  async function maybeStartVisualizer() {
+    var audio = getAudio();
+    if (!isEnabled || !isAudioPlaying(audio)) {
+      updateButtonState();
+      return;
+    }
+
+    if (isRendering) {
+      updateButtonState();
+      return;
+    }
+
     if (!window.butterchurn || !window.butterchurn.createVisualizer) {
       warn('Could not start: Butterchurn is unavailable.');
+      updateButtonState();
       return;
     }
 
     if (!ensureCanvas()) {
       warn('Could not start: add a div with class "party-div".');
+      updateButtonState();
       return;
     }
 
-    connectAudio(audio);
-    if (audioContext && audioContext.state === 'suspended') {
-      await audioContext.resume();
+    try {
+      connectAudio(audio);
+    } catch (error) {
+      warn('Could not connect audio to Butterchurn visualizer.', error);
+      updateButtonState();
+      return;
     }
 
-    isActive = true;
+    if (audioContext && audioContext.state === 'suspended') {
+      try {
+        await audioContext.resume();
+      } catch (error) {
+        warn('Could not resume audio context.', error);
+      }
+    }
+
+    isRendering = true;
     target.classList.add('is-active');
     document.body.classList.add('party-mode-active');
     updateButtonState();
     window.cancelAnimationFrame(renderFrame);
-    log('Party mode active.');
+    log('Party visualizer started.');
     render();
   }
 
-  function stopPartyMode() {
-    isActive = false;
+  function stopVisualizer() {
+    isRendering = false;
     window.cancelAnimationFrame(renderFrame);
     if (target) {
       target.classList.remove('is-active');
     }
     document.body.classList.remove('party-mode-active');
     updateButtonState();
-    log('Party mode stopped.');
+    log('Party visualizer stopped.');
   }
 
   function updateButtonState() {
@@ -592,13 +643,14 @@ function buildPartyModeLoaderScript(): string {
 
     var audio = getAudio();
     var targetExists = Boolean(getPartyTarget());
-    var shouldShow = Boolean((isActive || audio) && targetExists);
-    button.classList.toggle('is-visible', shouldShow);
+    button.classList.toggle('is-active', isEnabled);
+    button.textContent = isEnabled ? 'Party Mode: ON' : 'Party Mode: OFF';
     log('Button state updated.', {
-      active: isActive,
-      audioPlaying: Boolean(audio),
+      enabled: isEnabled,
+      rendering: isRendering,
+      audioPlaying: isAudioPlaying(audio),
       targetFound: targetExists,
-      visible: shouldShow
+      visible: true
     });
   }
 
@@ -610,22 +662,27 @@ function buildPartyModeLoaderScript(): string {
       audio.__partyModeBound = true;
       audio.addEventListener('play', function () {
         log('Audio play event.', { src: audio.currentSrc || audio.src });
+        maybeStartVisualizer();
         updateButtonState();
       });
       audio.addEventListener('playing', function () {
         log('Audio playing event.', { src: audio.currentSrc || audio.src });
+        maybeStartVisualizer();
         updateButtonState();
       });
       audio.addEventListener('pause', function () {
         log('Audio pause event.');
+        stopVisualizer();
         updateButtonState();
       });
       audio.addEventListener('ended', function () {
         log('Audio ended event.');
+        stopVisualizer();
         updateButtonState();
       });
       audio.addEventListener('emptied', function () {
         log('Audio emptied event.');
+        stopVisualizer();
         updateButtonState();
       });
     });
@@ -642,17 +699,18 @@ function buildPartyModeLoaderScript(): string {
       presetsLoaded: Boolean(window.butterchurnPresets && window.butterchurnPresets.getPresets)
     });
     updateButtonState();
+    maybeStartVisualizer();
   }
 
   window.addEventListener('resize', resizeCanvas);
   document.addEventListener('click', function (event) {
-    if (isActive && event.target === target) {
-      stopPartyMode();
+    if (isRendering && event.target === target) {
+      setPartyModeEnabled(false);
     }
   });
   document.addEventListener('keydown', function (event) {
     if (event.key === 'Escape') {
-      stopPartyMode();
+      updateButtonState();
     }
   });
 
@@ -952,6 +1010,8 @@ function resolvePrimaryAlbum(): ResolvedAlbum | null {
         wavOutputFileName,
         mp3OutputFileName,
         audioPathFromRoot: `./music/${mp3OutputFileName}`,
+        audioDataPathFromRoot: `./music/audio-data/${trackFolder}.js`,
+        audioDataKey: trackFolder,
         contentPathFromRoot: `./content/${trackFolder}/index.html`
       };
     })
@@ -1260,9 +1320,14 @@ function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables): string
   const playlist = album.tracks.map((track) => ({
     title: track.title,
     src: track.audioPathFromRoot,
+    audioData: track.audioDataPathFromRoot,
+    audioKey: track.audioDataKey,
     page: track.contentPathFromRoot,
     artwork: `./content/${track.trackFolder}/${track.artworkFileName}`
   }));
+  const audioDataScripts = album.tracks
+    .map((track) => `    <script src="${escapeHtml(track.audioDataPathFromRoot)}"></script>`)
+    .join('\n');
 
   return `<!doctype html>
 <html lang="en">
@@ -1291,12 +1356,49 @@ function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables): string
         color: var(--ink);
         font-family: "Inter", "Segoe UI", sans-serif;
       }
+      body.player-view-mini {
+        display: block;
+        overflow: hidden;
+      }
+      body.player-view-micro {
+        display: block;
+        overflow: hidden;
+      }
       .panel {
+        position: relative;
         width: min(760px, 94vw);
         border: 1px solid var(--line);
         border-radius: 16px;
         padding: 22px;
         background: var(--surface);
+      }
+      .view-switcher {
+        position: absolute;
+        top: 18px;
+        right: 18px;
+        display: inline-flex;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(3, 3, 10, 0.78);
+        box-shadow: inset 0 0 16px rgba(124, 44, 255, 0.2);
+      }
+      .view-btn {
+        width: 42px;
+        height: 42px;
+        padding: 0;
+        border: 0;
+        border-left: 1px solid var(--line);
+        border-radius: 0;
+        background: transparent;
+        color: var(--ink);
+        font-size: 1.2rem;
+        line-height: 1;
+      }
+      .view-btn.is-active {
+        color: var(--bg);
+        background: var(--accent);
+        box-shadow: 0 0 22px rgba(124, 44, 255, 0.62);
       }
       .player-layout {
         display: grid;
@@ -1358,21 +1460,116 @@ function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables): string
       ol { margin: 0; padding-left: 20px; }
       li { margin: 8px 0; }
       .now { color: var(--accent); font-weight: 700; }
+      .track-select {
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        font-weight: inherit;
+        text-align: left;
+      }
+      .panel[data-view="mini"] {
+        position: fixed;
+        left: 24px;
+        bottom: 24px;
+        width: min(540px, 92vw);
+        padding: 28px;
+        border-radius: 22px;
+        background: rgba(3, 3, 10, 0.9);
+      }
+      .panel[data-view="mini"] .view-switcher {
+        top: 10px;
+        right: 10px;
+        transform: scale(0.82);
+        transform-origin: top right;
+      }
+      .panel[data-view="mini"] .player-layout {
+        grid-template-columns: 174px 1fr;
+        align-items: center;
+      }
+      .panel[data-view="mini"] .now-title,
+      .panel[data-view="mini"] h1,
+      .panel[data-view="mini"] .controls,
+      .panel[data-view="mini"] ol {
+        display: none;
+      }
+      .panel[data-view="mini"] .sub {
+        margin: 0 0 18px;
+        font-size: 1.35rem;
+      }
+      .panel[data-view="mini"] .player-main::before {
+        content: attr(data-current-title);
+        display: block;
+        margin-bottom: 8px;
+        color: var(--ink);
+        font-size: 1.15rem;
+        font-weight: 800;
+      }
+      .panel[data-view="mini"] audio { width: 100%; }
+      .panel[data-view="micro"] {
+        position: fixed;
+        left: 24px;
+        bottom: 24px;
+        width: min(380px, 88vw);
+        padding: 12px 14px;
+        border-radius: 999px;
+        background: rgba(3, 3, 10, 0.92);
+      }
+      .panel[data-view="micro"] .now-art,
+      .panel[data-view="micro"] h1,
+      .panel[data-view="micro"] .sub,
+      .panel[data-view="micro"] .controls,
+      .panel[data-view="micro"] ol,
+      .panel[data-view="micro"] audio {
+        display: none;
+      }
+      .panel[data-view="micro"] .player-layout {
+        display: block;
+      }
+      .panel[data-view="micro"] .view-switcher {
+        top: 50%;
+        right: 8px;
+        transform: translateY(-50%) scale(0.58);
+        transform-origin: center right;
+      }
+      .panel[data-view="micro"] .view-btn {
+        width: 34px;
+        height: 34px;
+      }
+      .panel[data-view="micro"] .player-main::before {
+        content: "▰▰▌";
+        margin-right: 18px;
+        color: var(--ink);
+      }
+      .panel[data-view="micro"] .player-main::after {
+        content: attr(data-current-title);
+        color: var(--ink);
+        font-weight: 800;
+      }
       @media (max-width: 680px) {
         body { place-items: start center; padding: 16px 0; }
         .player-layout { grid-template-columns: 1fr; }
         .now-art { width: min(280px, 100%); margin: 0 auto; }
+        .view-switcher { position: static; margin: 0 0 16px auto; width: fit-content; }
+        .panel[data-view="mini"] .player-layout { grid-template-columns: 1fr; }
       }
     </style>
   </head>
   <body>
-    <main class="panel">
+    <main class="panel" id="playerPanel" data-view="standard">
+      <nav class="view-switcher" aria-label="Player view">
+        <button class="view-btn" type="button" data-view="micro" aria-label="Micro view" title="Micro">−</button>
+        <button class="view-btn" type="button" data-view="mini" aria-label="Mini view" title="Mini">▦</button>
+        <button class="view-btn is-active" type="button" data-view="standard" aria-label="Standard view" title="Standard">□</button>
+        <button class="view-btn" type="button" data-view="fullscreen" aria-label="Full Screen view" title="Full Screen">⛶</button>
+      </nav>
       <section class="player-layout">
         <figure class="now-art">
           <img id="nowArt" src="${escapeHtml(playlist[0]?.artwork || album.artworkPathFromRoot)}" alt="${escapeHtml(playlist[0]?.title || album.title)} artwork" />
           <figcaption id="nowTitle" class="now-title">${escapeHtml(playlist[0]?.title || album.title)}</figcaption>
         </figure>
-        <section class="player-main">
+        <section class="player-main" id="playerMain" data-current-title="${escapeHtml(playlist[0]?.title || album.title)}">
           <h1>Play Album</h1>
           <p class="sub">${escapeHtml(album.title)} - play all.</p>
           <audio id="player" controls style="width:100%;"></audio>
@@ -1386,52 +1583,211 @@ function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables): string
       </section>
     </main>
     <div class="party-div" aria-hidden="true"></div>
+${audioDataScripts}
     <script>
       const playlist = ${JSON.stringify(playlist)};
       const player = document.getElementById('player');
+      const playerPanel = document.getElementById('playerPanel');
+      const playerMain = document.getElementById('playerMain');
       const list = document.getElementById('list');
       const nowArt = document.getElementById('nowArt');
       const nowTitle = document.getElementById('nowTitle');
       const playBtn = document.getElementById('playBtn');
       const nextBtn = document.getElementById('nextBtn');
+      const viewButtons = Array.from(document.querySelectorAll('.view-btn'));
       let index = 0;
 
-      player.crossOrigin = 'anonymous';
+      window.__albumAudioData = window.__albumAudioData || {};
+
+      function base64ToBlobUrl(base64) {
+        const binary = atob(base64);
+        const chunks = [];
+        for (let offset = 0; offset < binary.length; offset += 32768) {
+          const slice = binary.slice(offset, offset + 32768);
+          const bytes = new Uint8Array(slice.length);
+          for (let i = 0; i < slice.length; i += 1) {
+            bytes[i] = slice.charCodeAt(i);
+          }
+          chunks.push(bytes);
+        }
+        return URL.createObjectURL(new Blob(chunks, { type: 'audio/mpeg' }));
+      }
+
+      async function getPlayableSrc(item) {
+        if (item.blobUrl) {
+          return item.blobUrl;
+        }
+
+        const encodedAudio = window.__albumAudioData[item.audioKey];
+        if (encodedAudio) {
+          item.blobUrl = base64ToBlobUrl(encodedAudio);
+          return item.blobUrl;
+        }
+
+        console.warn('Embedded audio data was unavailable; falling back to file path.', item.audioKey);
+        return item.src;
+      }
 
       function renderList() {
         list.innerHTML = playlist.map((item, i) => {
           const cls = i === index ? 'class="now"' : '';
-          return '<li ' + cls + '><a href="' + item.page + '">' + item.title + '</a></li>';
+          return '<li ' + cls + '><button class="track-select" type="button" data-track-index="' + i + '">' + item.title + '</button></li>';
         }).join('');
       }
 
-      function loadTrack(newIndex) {
+      async function loadTrack(newIndex) {
         index = (newIndex + playlist.length) % playlist.length;
-        player.src = playlist[index].src;
+        player.src = await getPlayableSrc(playlist[index]);
         nowArt.src = playlist[index].artwork;
         nowArt.alt = playlist[index].title + ' artwork';
         nowTitle.textContent = playlist[index].title;
+        playerMain.dataset.currentTitle = playlist[index].title;
         renderList();
       }
 
-      playBtn.addEventListener('click', async () => {
-        if (!player.src) {
-          loadTrack(index);
+      async function requestFullscreenMicro() {
+        if (document.fullscreenElement) {
+          if (document.exitFullscreen) {
+            try { await document.exitFullscreen(); } catch (err) { console.error(err); }
+          }
+          setView('standard');
+          return;
         }
+
+        setView('micro', false);
+        try {
+          if (document.documentElement.requestFullscreen) {
+            await document.documentElement.requestFullscreen();
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      function setView(view, persist = true) {
+        if (!['standard', 'mini', 'micro'].includes(view)) {
+          view = 'standard';
+        }
+        playerPanel.dataset.view = view;
+        document.body.classList.remove('player-view-standard', 'player-view-mini', 'player-view-micro');
+        document.body.classList.add('player-view-' + view);
+        viewButtons.forEach((button) => {
+          button.classList.toggle('is-active', button.dataset.view === view);
+        });
+        if (persist) {
+          localStorage.setItem('albumPlayerView', view);
+        }
+      }
+
+      viewButtons.forEach((button) => {
+        button.addEventListener('click', async () => {
+          if (button.dataset.view === 'fullscreen') {
+            await requestFullscreenMicro();
+            return;
+          }
+          setView(button.dataset.view);
+        });
+      });
+
+      document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement) {
+          setView('standard');
+        }
+      });
+
+      async function togglePlayback() {
+        if (player.paused) {
+          if (!player.src) {
+            await loadTrack(index);
+          }
+          try { await player.play(); } catch (err) { console.error(err); }
+          return;
+        }
+        player.pause();
+      }
+
+      playerPanel.addEventListener('click', async (event) => {
+        if (playerPanel.dataset.view !== 'micro') {
+          return;
+        }
+        if (event.target.closest('.view-switcher')) {
+          return;
+        }
+        await togglePlayback();
+      });
+
+      async function previousTrack() {
+        const wasPlaying = !player.paused;
+        await loadTrack(index - 1);
+        if (wasPlaying) {
+          try { await player.play(); } catch (err) { console.error(err); }
+        }
+      }
+
+      async function nextTrack() {
+        const wasPlaying = !player.paused;
+        await loadTrack(index + 1);
+        if (wasPlaying) {
+          try { await player.play(); } catch (err) { console.error(err); }
+        }
+      }
+
+      async function playTrack(newIndex) {
+        await loadTrack(newIndex);
         try { await player.play(); } catch (err) { console.error(err); }
+      }
+
+      list.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-track-index]');
+        if (!button) {
+          return;
+        }
+        await playTrack(Number(button.dataset.trackIndex));
+      });
+
+      document.addEventListener('keydown', async (event) => {
+        if (event.code === 'Space') {
+          const tagName = event.target && event.target.tagName;
+          if (tagName && ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes(tagName)) {
+            return;
+          }
+          event.preventDefault();
+          await togglePlayback();
+        }
+
+        if (event.key === 'ArrowLeft') {
+          event.preventDefault();
+          await previousTrack();
+        }
+
+        if (event.key === 'ArrowRight') {
+          event.preventDefault();
+          await nextTrack();
+        }
+
+        if (event.key === 'Escape') {
+          if (document.fullscreenElement && document.exitFullscreen) {
+            try { await document.exitFullscreen(); } catch (err) { console.error(err); }
+          }
+          setView('standard');
+        }
+      });
+
+      playBtn.addEventListener('click', async () => {
+        await togglePlayback();
       });
 
       nextBtn.addEventListener('click', async () => {
-        loadTrack(index + 1);
-        try { await player.play(); } catch (err) { console.error(err); }
+        await nextTrack();
       });
 
       player.addEventListener('ended', async () => {
-        loadTrack(index + 1);
+        await loadTrack(index + 1);
         try { await player.play(); } catch (err) { console.error(err); }
       });
 
-      loadTrack(0);
+      loadTrack(0).catch((err) => console.error(err));
+      setView(localStorage.getItem('albumPlayerView') || 'standard');
     </script>
     <script src="./party-mode.js"></script>
   </body>
@@ -1615,15 +1971,36 @@ function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, currentIn
               <button id="playSong" class="primary">Play Song</button>
               <a href="${escapeHtml(secondaryActionHref)}">${escapeHtml(secondaryActionLabel)}</a>
             </div>
-            <audio id="player" controls crossorigin="anonymous" src="../../${escapeHtml(track.audioPathFromRoot.replace(/^\.\//, ''))}"></audio>
+            <audio id="player" controls src="../../${escapeHtml(track.audioPathFromRoot.replace(/^\.\//, ''))}"></audio>
           </section>
         </section>
       </section>
     </main>
     <div class="party-div" aria-hidden="true"></div>
+    <script src="../../${escapeHtml(track.audioDataPathFromRoot.replace(/^\.\//, ''))}"></script>
     <script>
       const player = document.getElementById('player');
       const playSong = document.getElementById('playSong');
+      const audioKey = ${JSON.stringify(track.audioDataKey)};
+
+      function base64ToBlobUrl(base64) {
+        const binary = atob(base64);
+        const chunks = [];
+        for (let offset = 0; offset < binary.length; offset += 32768) {
+          const slice = binary.slice(offset, offset + 32768);
+          const bytes = new Uint8Array(slice.length);
+          for (let i = 0; i < slice.length; i += 1) {
+            bytes[i] = slice.charCodeAt(i);
+          }
+          chunks.push(bytes);
+        }
+        return URL.createObjectURL(new Blob(chunks, { type: 'audio/mpeg' }));
+      }
+
+      if (window.__albumAudioData && window.__albumAudioData[audioKey]) {
+        player.src = base64ToBlobUrl(window.__albumAudioData[audioKey]);
+      }
+
       playSong.addEventListener('click', async () => {
         try { await player.play(); } catch (err) { console.error(err); }
       });
