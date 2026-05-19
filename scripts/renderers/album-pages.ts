@@ -4,10 +4,11 @@ import type { BuildOptions, ResolvedAlbum, ResolvedTrack, ThemeVariables } from 
 export function buildAlbumLandingHtml(album: ResolvedAlbum, theme: ThemeVariables, options: BuildOptions): string {
   const songRows = album.tracks
     .map((track, index) => {
+      const trackNumber = String(index + 1).padStart(2, '0');
       return `
-        <a class="song-row" href="${track.contentPathFromRoot}">
+        <a class="song-row" href="./play-album.html?track=${trackNumber}">
           <img class="song-art" src="./content/${escapeHtml(track.trackFolder)}/${escapeHtml(track.artworkFileName)}" alt="${escapeHtml(track.title)} artwork" />
-          <span class="song-index">${String(index + 1).padStart(2, '0')}</span>
+          <span class="song-index">${trackNumber}</span>
           <span class="song-meta">
             <span class="song-title">${escapeHtml(track.title)}</span>
           </span>
@@ -1177,8 +1178,12 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
       const autoplayMusicIcon = document.getElementById('autoplayMusicIcon');
       const autoplayMusicLabel = document.getElementById('autoplayMusicLabel');
       const autoplayPartyBtn = document.getElementById('autoplayPartyBtn');
-      const shouldAutoplay = new URLSearchParams(window.location.search).get('autoplay') === '1';
-      let index = 0;
+      const urlParams = new URLSearchParams(window.location.search);
+      const requestedTrackNumber = urlParams.get('track');
+      const requestedTrackIndex = /^\\d{2}$/.test(requestedTrackNumber || '') ? Number(requestedTrackNumber) - 1 : 0;
+      const initialTrackIndex = requestedTrackIndex >= 0 && requestedTrackIndex < playlist.length ? requestedTrackIndex : 0;
+      const shouldAutoplay = urlParams.get('autoplay') === '1';
+      let index = initialTrackIndex;
       let mobileControlsTimer = 0;
       let lastTapTime = 0;
       let pointerStart = null;
@@ -1743,7 +1748,7 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         releaseWakeLock();
       });
 
-      loadTrack(0)
+      loadTrack(initialTrackIndex)
         .then(async () => {
           if (shouldAutoplay) {
             setAutoplayPromptVisible(true);
