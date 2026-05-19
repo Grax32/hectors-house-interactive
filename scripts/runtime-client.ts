@@ -79,7 +79,7 @@ export function buildRuntimeProfileScript(): string {
 
   function getStoredProfileName() {
     try {
-      return localStorage.getItem('albumRuntimeProfile') || localStorage.getItem('partyModePerformance');
+      return localStorage.getItem('albumRuntimeProfile');
     } catch (error) {
       return null;
     }
@@ -88,9 +88,6 @@ export function buildRuntimeProfileScript(): string {
   function normalizeLegacyProfileName(name) {
     if (name === 'high') {
       return 'desktop-high';
-    }
-    if (name === 'medium' || name === 'low') {
-      return 'desktop-low';
     }
     return name;
   }

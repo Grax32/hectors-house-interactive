@@ -16,9 +16,6 @@ export function buildAlbumLandingHtml(album: ResolvedAlbum, theme: ThemeVariable
     .join('');
 
   const releaseText = formatDisplayDate(album.releaseDate, 'long');
-  const musicFolderButton = options.includeWavFiles
-    ? '<a class="btn secondary" href="./music/">Open Music Folder</a>'
-    : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -267,7 +264,6 @@ export function buildAlbumLandingHtml(album: ResolvedAlbum, theme: ThemeVariable
           <p>${escapeHtml(album.description)}</p>
           <div class="actions">
             <a class="btn" href="./play-album.html?autoplay=1">Play Album</a>
-            ${musicFolderButton}
           </div>
         </section>
       </section>
@@ -532,6 +528,63 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
       .mobile-tracklist {
         display: none;
       }
+      .autoplay-cta {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 9;
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        min-height: 64px;
+        max-width: min(90vw, 280px);
+        width: min(90vw, 280px);
+      }
+      .autoplay-cta[hidden] {
+        display: none;
+      }
+      .autoplay-cta-button {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 56px;
+        padding: 0 18px;
+        width: 100%;
+        border: 1px solid rgba(228, 168, 74, 0.82);
+        border-radius: 999px;
+        background: linear-gradient(135deg, rgba(139, 50, 255, 0.92), rgba(55, 240, 231, 0.78));
+        color: #05030c;
+        font-size: 0.95rem;
+        font-weight: 900;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        box-shadow:
+          0 0 20px rgba(228, 168, 74, 0.38),
+          0 0 40px rgba(139, 50, 255, 0.32);
+        transition: transform 120ms ease, box-shadow 120ms ease;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .autoplay-cta-button:hover {
+        transform: translateY(-2px);
+        box-shadow:
+          0 0 28px rgba(228, 168, 74, 0.48),
+          0 0 56px rgba(139, 50, 255, 0.42);
+      }
+      .autoplay-cta-button:active {
+        transform: translateY(0);
+      }
+      .autoplay-cta-button-icon {
+        font-size: 1.25rem;
+        display: inline-block;
+        line-height: 1;
+      }
       @media (max-width: 900px), (pointer: coarse) {
         body.runtime-profile-mobile.party-mode-active,
         body.runtime-profile-mobile.player-view-party {
@@ -570,6 +623,7 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           width: 100vw;
           min-height: 100svh;
           padding: max(18px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+          box-sizing: border-box;
           border: 0;
           border-radius: 0;
           background: linear-gradient(180deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.02) 36%, rgba(0, 0, 0, 0.74));
@@ -614,16 +668,15 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           pointer-events: none;
           transition: opacity 220ms ease, transform 220ms ease;
         }
-        body.mobile-controls-idle .mobile-party-ui {
-          opacity: 0;
-          transform: scale(1.01);
-        }
         .mobile-party-top {
           display: flex;
           justify-content: space-between;
           gap: 16px;
           align-items: flex-start;
           padding: 22px 20px 0;
+        }
+        .mobile-party-top > div {
+          min-width: 0;
         }
         .mobile-party-kicker {
           margin: 0 0 2px;
@@ -633,24 +686,37 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           letter-spacing: 0.04em;
           text-transform: uppercase;
           text-shadow: 0 0 18px rgba(228, 168, 74, 0.38);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .mobile-party-title {
           margin: 0;
           color: rgba(255, 255, 255, 0.86);
           font-size: 0.92rem;
           font-weight: 600;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
-        .mobile-wave {
+        .mobile-exit-btn {
           display: grid;
           place-items: center;
-          width: 44px;
-          height: 44px;
+          width: 48px;
+          height: 48px;
+          flex: 0 0 48px;
           border: 1px solid rgba(255, 255, 255, 0.12);
           border-radius: 999px;
           background: rgba(0, 0, 0, 0.42);
           color: white;
-          font-size: 1.15rem;
+          font-size: 1.45rem;
+          line-height: 1;
+          text-decoration: none;
           box-shadow: 0 0 24px rgba(139, 50, 255, 0.26);
+          cursor: pointer;
+          pointer-events: auto;
+          user-select: none;
+          -webkit-tap-highlight-color: transparent;
         }
         .mobile-party-spacer {
           min-height: 36svh;
@@ -658,20 +724,39 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         .mobile-party-bottom {
           display: grid;
           gap: 18px;
-          padding: 0 20px 22px;
+          width: min(calc(100vw - 72px), 360px);
+          max-width: 100%;
+          margin: 0 auto;
+          padding: 14px 14px 18px;
+          border: 1px solid rgba(167, 70, 255, 0.24);
+          border-radius: 24px;
+          background: rgba(7, 4, 16, 0.1);
+          box-sizing: border-box;
           pointer-events: auto;
         }
         .mobile-time-row {
           display: grid;
-          grid-template-columns: auto 1fr auto;
+          grid-template-columns: 46px minmax(0, 1fr) 46px;
           gap: 10px;
           align-items: center;
           color: rgba(255, 255, 255, 0.64);
           font-size: 0.78rem;
           font-variant-numeric: tabular-nums;
         }
+        .mobile-time-row > span {
+          min-width: 0;
+        }
+        .mobile-time-row > span:last-child {
+          justify-self: end;
+          text-align: right;
+        }
+        .mobile-time-row > span:first-child,
+        .mobile-time-row > span:last-child {
+          width: 46px;
+        }
         .mobile-progress {
           position: relative;
+          min-width: 0;
           height: 4px;
           border-radius: 999px;
           overflow: hidden;
@@ -686,15 +771,19 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           box-shadow: 0 0 16px rgba(139, 50, 255, 0.86);
         }
         .mobile-control-row {
-          display: flex;
+          display: grid;
+          grid-template-columns: 48px 74px 48px;
+          column-gap: 28px;
           justify-content: center;
           align-items: center;
-          gap: 28px;
         }
         .mobile-control,
         .mobile-control-small {
+          appearance: none;
+          -webkit-appearance: none;
           display: grid;
           place-items: center;
+          -webkit-tap-highlight-color: transparent;
           border: 1px solid rgba(255, 255, 255, 0.12);
           border-radius: 999px;
           background: rgba(7, 4, 16, 0.58);
@@ -702,7 +791,6 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           box-shadow:
             inset 0 0 18px rgba(139, 50, 255, 0.22),
             0 0 24px rgba(139, 50, 255, 0.22);
-          backdrop-filter: blur(12px);
         }
         .mobile-control {
           width: 74px;
@@ -713,6 +801,39 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
             inset 0 0 20px rgba(139, 50, 255, 0.3),
             0 0 30px rgba(139, 50, 255, 0.58);
         }
+        .mobile-play-icon {
+          display: grid;
+          place-items: center;
+          position: relative;
+          width: 30px;
+          height: 30px;
+          line-height: 1;
+        }
+        .mobile-play-icon::before {
+          content: '';
+          width: 0;
+          height: 0;
+          border-top: 12px solid transparent;
+          border-bottom: 12px solid transparent;
+          border-left: 18px solid currentColor;
+          transform: translateX(2px);
+        }
+        .mobile-control.is-playing .mobile-play-icon {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 7px;
+        }
+        .mobile-control.is-playing .mobile-play-icon::before,
+        .mobile-control.is-playing .mobile-play-icon::after {
+          content: '';
+          width: 7px;
+          height: 24px;
+          border-radius: 2px;
+          background: currentColor;
+          border: 0;
+          transform: none;
+        }
         .mobile-control-small {
           width: 48px;
           height: 48px;
@@ -720,12 +841,15 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         }
         .mobile-secondary-row {
           display: flex;
-          justify-content: space-between;
           align-items: center;
-          gap: 12px;
+          justify-content: center;
+          width: 100%;
+          margin: 0 auto;
         }
         .mobile-chip,
         .mobile-icon-btn {
+          appearance: none;
+          -webkit-appearance: none;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -736,24 +860,47 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           background: rgba(7, 4, 16, 0.62);
           color: rgba(255, 255, 255, 0.9);
           box-shadow: inset 0 0 18px rgba(139, 50, 255, 0.16);
-          backdrop-filter: blur(12px);
         }
         .mobile-chip {
+          width: 100%;
+          max-width: none;
           padding: 0 16px;
           font-weight: 800;
+          white-space: nowrap;
+          min-width: 0;
         }
         .mobile-chip.is-active {
           border-color: rgba(228, 168, 74, 0.72);
-          color: #05030c;
-          background: linear-gradient(135deg, var(--hero), var(--cyan));
+          color: rgba(255, 255, 255, 0.97);
+          background: linear-gradient(135deg, rgba(139, 50, 255, 0.88), rgba(55, 240, 231, 0.7));
           box-shadow:
             0 0 20px rgba(228, 168, 74, 0.36),
             0 0 34px rgba(139, 50, 255, 0.28);
         }
+        .mobile-chip:focus-visible,
+        .mobile-chip:active {
+          color: rgba(255, 255, 255, 0.97);
+          background: linear-gradient(135deg, rgba(139, 50, 255, 0.88), rgba(55, 240, 231, 0.7));
+          outline: none;
+        }
         .mobile-icon-btn {
+          flex: 0 0 44px;
           width: 44px;
+          -webkit-tap-highlight-color: transparent;
           padding: 0;
           font-size: 1.05rem;
+        }
+        .mobile-control:focus-visible,
+        .mobile-control-small:focus-visible,
+        .mobile-icon-btn:focus-visible {
+          outline: none;
+          border-color: rgba(173, 70, 255, 0.82);
+        }
+        #mobileVolumeBtn {
+          display: none;
+        }
+        #mobileTracklistBtn {
+          width: min(100%, 240px);
         }
         body.runtime-profile-mobile.party-mode-active .mobile-tracklist,
         body.runtime-profile-mobile.player-view-party .mobile-tracklist {
@@ -820,8 +967,8 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
             align-self: end;
             max-width: 620px;
             justify-self: center;
-            width: 74vw;
-            padding-bottom: 16px;
+            width: min(74vw, 620px);
+            padding: 12px 14px 14px;
           }
           .mobile-party-top {
             padding: 18px 48px 0;
@@ -875,7 +1022,7 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
             <p class="mobile-party-kicker" id="mobileTrackTitle">${escapeHtml(playlist[0]?.title || album.title)}</p>
             <p class="mobile-party-title">${escapeHtml(album.title)}</p>
           </div>
-          <span class="mobile-wave" aria-hidden="true">▥</span>
+          <a class="mobile-exit-btn" href="./START-HERE.html" aria-label="Back to album">×</a>
         </header>
         <div class="mobile-party-spacer" aria-hidden="true"></div>
         <footer class="mobile-party-bottom">
@@ -886,17 +1033,26 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           </div>
           <div class="mobile-control-row">
             <button class="mobile-control-small" id="mobilePrevBtn" type="button" aria-label="Previous song">◀</button>
-            <button class="mobile-control" id="mobilePlayBtn" type="button" aria-label="Play or pause">▶</button>
+            <button class="mobile-control" id="mobilePlayBtn" type="button" aria-label="Play or pause"><span class="mobile-play-icon" aria-hidden="true"></span></button>
             <button class="mobile-control-small" id="mobileNextBtn" type="button" aria-label="Next song">▶</button>
           </div>
           <div class="mobile-secondary-row">
             <button class="mobile-icon-btn" id="mobileVolumeBtn" type="button" aria-label="Mute or unmute">◉</button>
             <button class="mobile-chip" id="mobileTracklistBtn" type="button" aria-pressed="false">Party Mode Off</button>
-            <a class="mobile-icon-btn" href="./START-HERE.html" aria-label="Back to album">×</a>
           </div>
         </footer>
       </section>
     </main>
+    <div class="autoplay-cta" id="autoplayCta" hidden>
+      <button id="autoplayMusicBtn" class="autoplay-cta-button" type="button" aria-label="Start music playback">
+        <span class="autoplay-cta-button-icon">▶</span>
+        <span>Start Music</span>
+      </button>
+      <button id="autoplayPartyBtn" class="autoplay-cta-button" type="button" aria-label="Start music with party mode">
+        <span class="autoplay-cta-button-icon">🪩</span>
+        <span>Start in Party Mode</span>
+      </button>
+    </div>
     <aside class="mobile-tracklist" id="mobileTracklist" aria-label="Tracklist">
       <p class="mobile-tracklist-title">Tracklist</p>
       <div id="mobileTracklistItems"></div>
@@ -927,6 +1083,9 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
       const mobileTracklistBtn = document.getElementById('mobileTracklistBtn');
       const mobileTracklist = document.getElementById('mobileTracklist');
       const mobileTracklistItems = document.getElementById('mobileTracklistItems');
+      const autoplayCta = document.getElementById('autoplayCta');
+      const autoplayMusicBtn = document.getElementById('autoplayMusicBtn');
+      const autoplayPartyBtn = document.getElementById('autoplayPartyBtn');
       const shouldAutoplay = new URLSearchParams(window.location.search).get('autoplay') === '1';
       let index = 0;
       let mobileControlsTimer = 0;
@@ -934,6 +1093,13 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
       let pointerStart = null;
       let longPressTimer = 0;
       let wakeLock = null;
+      let mobileProgressRaf = 0;
+      let lastMobileElapsed = '';
+      let lastMobileDuration = '';
+      let lastMobileProgressWidth = '';
+      let lastMobilePlayAriaLabel = '';
+      let lastMobileVolumeLabel = '';
+      let lastMobilePartyEnabled = null;
 
       async function getPlayableSrc(item) {
         return window.albumRuntime.audioProvider.getAudioUrl(item);
@@ -961,22 +1127,67 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         return minutes + ':' + remainder;
       }
 
-      function updateMobileProgress() {
-        mobileElapsed.textContent = formatTime(player.currentTime);
-        mobileDuration.textContent = formatTime(player.duration);
-        const progress = player.duration > 0 ? Math.min(player.currentTime / player.duration, 1) : 0;
-        mobileProgressFill.style.width = Math.round(progress * 1000) / 10 + '%';
-        mobilePlayBtn.textContent = player.paused ? '▶' : 'Ⅱ';
-        mobilePlayBtn.setAttribute('aria-label', player.paused ? 'Play' : 'Pause');
-        mobileVolumeBtn.textContent = player.muted || player.volume === 0 ? '○' : '◉';
-        updateMobilePartyButton();
-      }
-
       function updateMobilePartyButton() {
         const enabled = Boolean(window.albumPartyMode && window.albumPartyMode.isEnabled());
+        if (enabled === lastMobilePartyEnabled) {
+          return;
+        }
+
+        lastMobilePartyEnabled = enabled;
         mobileTracklistBtn.textContent = enabled ? 'Party Mode On' : 'Party Mode Off';
         mobileTracklistBtn.classList.toggle('is-active', enabled);
         mobileTracklistBtn.setAttribute('aria-pressed', String(enabled));
+      }
+
+      function setAutoplayPromptVisible(isVisible) {
+        if (!autoplayCta) {
+          return;
+        }
+        autoplayCta.hidden = !isVisible;
+      }
+
+      function updateMobileProgress() {
+        const elapsed = formatTime(player.currentTime);
+        const duration = formatTime(player.duration);
+        const progress = player.duration > 0 ? Math.min(player.currentTime / player.duration, 1) : 0;
+        const progressWidth = Math.round(progress * 1000) / 10 + '%';
+        const playAriaLabel = player.paused ? 'Play' : 'Pause';
+        const volumeLabel = player.muted || player.volume === 0 ? '○' : '◉';
+
+        if (elapsed !== lastMobileElapsed) {
+          mobileElapsed.textContent = elapsed;
+          lastMobileElapsed = elapsed;
+        }
+        if (duration !== lastMobileDuration) {
+          mobileDuration.textContent = duration;
+          lastMobileDuration = duration;
+        }
+        if (progressWidth !== lastMobileProgressWidth) {
+          mobileProgressFill.style.width = progressWidth;
+          lastMobileProgressWidth = progressWidth;
+        }
+        mobilePlayBtn.classList.toggle('is-playing', !player.paused);
+        if (playAriaLabel !== lastMobilePlayAriaLabel) {
+          mobilePlayBtn.setAttribute('aria-label', playAriaLabel);
+          lastMobilePlayAriaLabel = playAriaLabel;
+        }
+        if (volumeLabel !== lastMobileVolumeLabel) {
+          mobileVolumeBtn.textContent = volumeLabel;
+          lastMobileVolumeLabel = volumeLabel;
+        }
+
+        updateMobilePartyButton();
+      }
+
+      function scheduleMobileProgressUpdate() {
+        if (mobileProgressRaf) {
+          return;
+        }
+
+        mobileProgressRaf = window.requestAnimationFrame(() => {
+          mobileProgressRaf = 0;
+          updateMobileProgress();
+        });
       }
 
       async function requestWakeLock() {
@@ -1229,7 +1440,9 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           if (document.fullscreenElement && document.exitFullscreen) {
             try { await document.exitFullscreen(); } catch (err) { console.error(err); }
           }
-          setView('standard');
+          if (!isMobileProfile()) {
+            setView('standard');
+          }
         }
       });
 
@@ -1363,15 +1576,16 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         await loadTrack(index + 1);
         try { await player.play(); } catch (err) { console.error(err); }
       });
-      player.addEventListener('timeupdate', updateMobileProgress);
-      player.addEventListener('durationchange', updateMobileProgress);
+      player.addEventListener('timeupdate', scheduleMobileProgressUpdate);
+      player.addEventListener('durationchange', scheduleMobileProgressUpdate);
       player.addEventListener('play', () => {
-        updateMobileProgress();
+        setAutoplayPromptVisible(false);
+        scheduleMobileProgressUpdate();
         showMobileControls();
         requestWakeLock();
       });
       player.addEventListener('pause', () => {
-        updateMobileProgress();
+        scheduleMobileProgressUpdate();
         showMobileControls();
         releaseWakeLock();
       });
@@ -1379,16 +1593,72 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
       loadTrack(0)
         .then(async () => {
           if (shouldAutoplay) {
-            try { await player.play(); } catch (err) { console.error(err); }
+            setAutoplayPromptVisible(true);
+          }
+          if (shouldAutoplay) {
+            try {
+              await player.play();
+              setAutoplayPromptVisible(false);
+            } catch (err) {
+              console.error(err);
+              setAutoplayPromptVisible(true);
+            }
           }
         })
         .catch((err) => console.error(err));
+
+      if (autoplayMusicBtn) {
+        autoplayMusicBtn.addEventListener('click', async () => {
+          try {
+            await player.play();
+            setAutoplayPromptVisible(false);
+          } catch (err) {
+            console.error(err);
+            setAutoplayPromptVisible(true);
+          }
+        });
+      }
+
+      if (autoplayPartyBtn) {
+        autoplayPartyBtn.addEventListener('click', async () => {
+          try {
+            await player.play();
+            setAutoplayPromptVisible(false);
+            if (window.albumPartyMode) {
+              window.albumPartyMode.setEnabled(true);
+            }
+          } catch (err) {
+            console.error(err);
+            setAutoplayPromptVisible(true);
+          }
+        });
+      }
       setView(localStorage.getItem('albumPlayerView') || 'standard');
       applyRuntimeProfile();
       window.addEventListener('album-runtime-profile-change', applyRuntimeProfile);
     </script>
     <script src="./butterchurn.min.js"></script>
     <script src="./butterchurnPresetsMinimal.min.js"></script>
+    <script>
+      (function () {
+        var butterchurnLib = window.butterchurn && window.butterchurn.default
+          ? window.butterchurn.default
+          : window.butterchurn;
+        if (butterchurnLib && butterchurnLib.createVisualizer) {
+          window.butterchurn = butterchurnLib;
+        }
+
+        var presetLib = window.butterchurnPresets
+          || window.butterchurnPresetsMinimal
+          || (window.butterchurnPresets && window.butterchurnPresets.default)
+          || (window.butterchurnPresetsMinimal && window.butterchurnPresetsMinimal.default)
+          || null;
+        if (presetLib && presetLib.getPresets) {
+          window.butterchurnPresets = presetLib;
+          window.butterchurnPresetsMinimal = presetLib;
+        }
+      })();
+    </script>
     <script src="./party-mode.js"></script>
   </body>
 </html>
@@ -1616,9 +1886,28 @@ export function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, cu
     </script>
     <script src="../../butterchurn.min.js"></script>
     <script src="../../butterchurnPresetsMinimal.min.js"></script>
+    <script>
+      (function () {
+        var butterchurnLib = window.butterchurn && window.butterchurn.default
+          ? window.butterchurn.default
+          : window.butterchurn;
+        if (butterchurnLib && butterchurnLib.createVisualizer) {
+          window.butterchurn = butterchurnLib;
+        }
+
+        var presetLib = window.butterchurnPresets
+          || window.butterchurnPresetsMinimal
+          || (window.butterchurnPresets && window.butterchurnPresets.default)
+          || (window.butterchurnPresetsMinimal && window.butterchurnPresetsMinimal.default)
+          || null;
+        if (presetLib && presetLib.getPresets) {
+          window.butterchurnPresets = presetLib;
+          window.butterchurnPresetsMinimal = presetLib;
+        }
+      })();
+    </script>
     <script src="../../party-mode.js"></script>
   </body>
 </html>
 `;
 }
-

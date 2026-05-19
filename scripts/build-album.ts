@@ -364,6 +364,36 @@ function buildPartyModeLoaderScript(): string {
     return profile.visualizer || fallbackProfile.visualizer;
   }
 
+  function getButterchurnLibrary() {
+    var candidate = window.butterchurn;
+    if (candidate && candidate.createVisualizer) {
+      return candidate;
+    }
+    if (candidate && candidate.default && candidate.default.createVisualizer) {
+      return candidate.default;
+    }
+    return null;
+  }
+
+  function getButterchurnPresetLibrary() {
+    var candidates = [
+      window.butterchurnPresets,
+      window.butterchurnPresetsMinimal
+    ];
+
+    for (var i = 0; i < candidates.length; i += 1) {
+      var candidate = candidates[i];
+      if (candidate && candidate.getPresets) {
+        return candidate;
+      }
+      if (candidate && candidate.default && candidate.default.getPresets) {
+        return candidate.default;
+      }
+    }
+
+    return null;
+  }
+
   function log(message, details) {
     if (!debugEnabled) {
       return;
@@ -415,7 +445,7 @@ function buildPartyModeLoaderScript(): string {
       '.party-div{display:none;position:fixed;inset:0;z-index:1;background:transparent;opacity:.75;pointer-events:none}',
       '.party-div.is-active{display:block}',
       '.party-div canvas{display:block;width:100%;height:100%;object-fit:cover}',
-      'body.party-mode-active main:not([data-view="mini"]):not([data-view="micro"]),body.party-mode-active .wrap{position:relative;z-index:2}',
+      'body.party-mode-active main:not([data-view="mini"]):not([data-view="micro"]):not([data-view="party"]),body.party-mode-active .wrap{position:relative;z-index:2}',
       'body.party-mode-active .panel[data-view="mini"],body.party-mode-active .panel[data-view="micro"]{position:fixed;left:24px;bottom:24px;z-index:2}',
       'body.party-mode-active main.panel{background:rgba(3,3,10,.9)}',
       'body.party-mode-active{overflow:hidden}'
@@ -494,11 +524,12 @@ function buildPartyModeLoaderScript(): string {
   }
 
   function getPresetChoice() {
-    if (!window.butterchurnPresets || !window.butterchurnPresets.getPresets) {
+    var presetLibrary = getButterchurnPresetLibrary();
+    if (!presetLibrary) {
       return null;
     }
 
-    var presets = window.butterchurnPresets.getPresets();
+    var presets = presetLibrary.getPresets();
     if (!presetNames.length) {
       presetNames = Object.keys(presets);
       log('Loaded presets.', { count: presetNames.length });
@@ -587,8 +618,13 @@ function buildPartyModeLoaderScript(): string {
     }
 
     if (!visualizer) {
+      var butterchurnLibrary = getButterchurnLibrary();
+      if (!butterchurnLibrary) {
+        throw new Error('Butterchurn visualizer library is unavailable.');
+      }
+
       var profile = getVisualizerProfile();
-      visualizer = window.butterchurn.createVisualizer(audioContext, canvas, {
+      visualizer = butterchurnLibrary.createVisualizer(audioContext, canvas, {
         width: profile.width,
         height: profile.height,
         textureRatio: profile.textureRatio
@@ -651,7 +687,7 @@ function buildPartyModeLoaderScript(): string {
         return;
       }
 
-      if (!window.butterchurn || !window.butterchurn.createVisualizer) {
+      if (!getButterchurnLibrary()) {
         warn('Could not start: Butterchurn is unavailable.');
         updateButtonState();
         return;
@@ -795,8 +831,8 @@ function buildPartyModeLoaderScript(): string {
     log('Booted.', {
       audioElements: document.querySelectorAll('audio').length,
       targetFound: Boolean(getPartyTarget()),
-      butterchurnLoaded: Boolean(window.butterchurn && window.butterchurn.createVisualizer),
-      presetsLoaded: Boolean(window.butterchurnPresets && window.butterchurnPresets.getPresets),
+      butterchurnLoaded: Boolean(getButterchurnLibrary()),
+      presetsLoaded: Boolean(getButterchurnPresetLibrary()),
       storedProfile: localStorage.getItem('albumRuntimeProfile') || localStorage.getItem('partyModePerformance') || 'auto'
     });
     updateButtonState();
