@@ -650,6 +650,9 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           0 0 28px rgba(228, 168, 74, 0.48),
           0 0 56px rgba(139, 50, 255, 0.42);
       }
+      .autoplay-cta-button[hidden] {
+        display: none;
+      }
       .autoplay-cta-button:active {
         transform: translateY(0);
       }
@@ -1127,8 +1130,8 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
     <div class="autoplay-scrim" id="autoplayScrim" hidden></div>
     <div class="autoplay-cta" id="autoplayCta" hidden>
       <button id="autoplayMusicBtn" class="autoplay-cta-button" type="button" aria-label="Start music playback">
-        <span class="autoplay-cta-button-icon">▶</span>
-        <span>Start Music</span>
+        <span class="autoplay-cta-button-icon" id="autoplayMusicIcon">▶</span>
+        <span id="autoplayMusicLabel">Start Music</span>
       </button>
       <button id="autoplayPartyBtn" class="autoplay-cta-button" type="button" aria-label="Start music with party mode">
         <span class="autoplay-cta-button-icon">🪩</span>
@@ -1171,6 +1174,8 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
       const autoplayScrim = document.getElementById('autoplayScrim');
       const autoplayCta = document.getElementById('autoplayCta');
       const autoplayMusicBtn = document.getElementById('autoplayMusicBtn');
+      const autoplayMusicIcon = document.getElementById('autoplayMusicIcon');
+      const autoplayMusicLabel = document.getElementById('autoplayMusicLabel');
       const autoplayPartyBtn = document.getElementById('autoplayPartyBtn');
       const shouldAutoplay = new URLSearchParams(window.location.search).get('autoplay') === '1';
       let index = 0;
@@ -1233,6 +1238,27 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           autoplayScrim.hidden = !isVisible;
         }
         autoplayCta.hidden = !isVisible;
+        syncAutoplayPromptButtons();
+      }
+
+      function syncAutoplayPromptButtons() {
+        if (!autoplayCta) {
+          return;
+        }
+        const isVisible = !autoplayCta.hidden;
+        const partyModeEnabled = Boolean(
+          document.body.classList.contains('party-mode-active') ||
+          (window.albumPartyMode && window.albumPartyMode.isEnabled())
+        );
+        if (autoplayMusicIcon) {
+          autoplayMusicIcon.textContent = partyModeEnabled ? '🪩' : '▶';
+        }
+        if (autoplayMusicLabel) {
+          autoplayMusicLabel.textContent = 'Start Music';
+        }
+        if (autoplayPartyBtn) {
+          autoplayPartyBtn.hidden = Boolean(isVisible && partyModeEnabled);
+        }
       }
 
       function updateMobileProgress() {
@@ -1690,7 +1716,9 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
       window.addEventListener('album-party-mode-change', () => {
         syncMobilePartyView();
         syncDesktopPartyControls();
+        syncAutoplayPromptButtons();
       });
+      window.addEventListener('load', syncAutoplayPromptButtons);
       document.addEventListener('visibilitychange', async () => {
         if (wakeLock !== null && document.visibilityState === 'visible') {
           await requestWakeLock();
