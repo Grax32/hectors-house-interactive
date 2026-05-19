@@ -747,6 +747,14 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           padding: 0 16px;
           font-weight: 800;
         }
+        .mobile-chip.is-active {
+          border-color: rgba(228, 168, 74, 0.72);
+          color: #05030c;
+          background: linear-gradient(135deg, var(--hero), var(--cyan));
+          box-shadow:
+            0 0 20px rgba(228, 168, 74, 0.36),
+            0 0 34px rgba(139, 50, 255, 0.28);
+        }
         .mobile-icon-btn {
           width: 44px;
           padding: 0;
@@ -888,7 +896,7 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           </div>
           <div class="mobile-secondary-row">
             <button class="mobile-icon-btn" id="mobileVolumeBtn" type="button" aria-label="Mute or unmute">◉</button>
-            <button class="mobile-chip" id="mobileTracklistBtn" type="button">Party Mode</button>
+            <button class="mobile-chip" id="mobileTracklistBtn" type="button" aria-pressed="false">Party Mode Off</button>
             <a class="mobile-icon-btn" href="./START-HERE.html" aria-label="Back to album">×</a>
           </div>
         </footer>
@@ -966,6 +974,14 @@ ${audioDataScripts}
         mobilePlayBtn.textContent = player.paused ? '▶' : 'Ⅱ';
         mobilePlayBtn.setAttribute('aria-label', player.paused ? 'Play' : 'Pause');
         mobileVolumeBtn.textContent = player.muted || player.volume === 0 ? '○' : '◉';
+        updateMobilePartyButton();
+      }
+
+      function updateMobilePartyButton() {
+        const enabled = Boolean(window.albumPartyMode && window.albumPartyMode.isEnabled());
+        mobileTracklistBtn.textContent = enabled ? 'Party Mode On' : 'Party Mode Off';
+        mobileTracklistBtn.classList.toggle('is-active', enabled);
+        mobileTracklistBtn.setAttribute('aria-pressed', String(enabled));
       }
 
       async function loadTrack(newIndex) {
@@ -1023,6 +1039,7 @@ ${audioDataScripts}
         if (!isMobileProfile()) {
           return;
         }
+        updateMobilePartyButton();
         document.body.classList.remove('mobile-controls-idle');
         window.clearTimeout(mobileControlsTimer);
         mobileControlsTimer = window.setTimeout(() => {
@@ -1065,6 +1082,7 @@ ${audioDataScripts}
           exitMobilePartyView();
           return;
         }
+        updateMobilePartyButton();
         enterMobilePartyView();
       }
 

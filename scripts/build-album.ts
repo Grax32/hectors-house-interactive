@@ -349,7 +349,14 @@ function buildPartyModeLoaderScript(): string {
   var connectedAudio = null;
   var connectedNode = null;
   var renderFrame = 0;
-  var isEnabled = localStorage.getItem('partyModeEnabled') === 'true';
+  function shouldRestorePartyMode() {
+    var profile = window.albumRuntime && window.albumRuntime.getProfile
+      ? window.albumRuntime.getProfile()
+      : null;
+    return !(profile && profile.name === 'mobile');
+  }
+
+  var isEnabled = shouldRestorePartyMode() && localStorage.getItem('partyModeEnabled') === 'true';
   var isRendering = false;
   var presetNames = [];
   var debugPrefix = '[Party Mode]';
@@ -663,12 +670,12 @@ function buildPartyModeLoaderScript(): string {
     await getPerformanceProfile();
     resizeCanvas();
 
-    try {
-      connectAudio(audio);
-    } catch (error) {
-      warn('Could not connect audio to Butterchurn visualizer.', error);
-      updateButtonState();
-      return;
+    if (!audioContext) {
+      var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextCtor) {
+        audioContext = new AudioContextCtor();
+        log('Created audio context.');
+      }
     }
 
     if (audioContext && audioContext.state === 'suspended') {
@@ -677,6 +684,14 @@ function buildPartyModeLoaderScript(): string {
       } catch (error) {
         warn('Could not resume audio context.', error);
       }
+    }
+
+    try {
+      connectAudio(audio);
+    } catch (error) {
+      warn('Could not connect audio to Butterchurn visualizer.', error);
+      updateButtonState();
+      return;
     }
 
     isRendering = true;
