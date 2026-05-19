@@ -116,7 +116,9 @@ Profiles currently tune:
 - UI density.
 - Touch vs keyboard control intent.
 
-Audio is resolved through `window.albumRuntime.audioProvider.getAudioUrl(item)`. The current provider prefers embedded base64 audio data when present, then falls back to the normal file path. This keeps the player code from caring whether a future build uses embedded/offline assets or external web URLs.
+Audio is resolved through `window.albumRuntime.audioProvider.getAudioUrl(item)` and currently uses the direct MP3 file path.
+
+Butterchurn and Butterchurn presets are loaded as normal script files (`dist/butterchurn.min.js` and `dist/butterchurnPresetsMinimal.min.js`), and `dist/party-mode.js` contains only the app-specific Party Mode runtime.
 
 The generated `play-album.html` has a mobile Party Mode view for the `mobile` runtime profile. It keeps the same player and audio provider, but presents a full-screen visual/art surface with minimal overlay controls, tap-to-reveal chrome, previous/next controls, a mobile tracklist drawer, volume touch adjustment on the right side, and swipe-down navigation back to the album page.
 

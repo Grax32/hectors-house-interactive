@@ -32,8 +32,6 @@ export interface ResolvedTrack {
   wavOutputFileName: string;
   mp3OutputFileName: string;
   audioPathFromRoot: string;
-  audioDataPathFromRoot: string;
-  audioDataKey: string;
   contentPathFromRoot: string;
 }
 

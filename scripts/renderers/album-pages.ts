@@ -288,14 +288,9 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
   const playlist = album.tracks.map((track) => ({
     title: track.title,
     src: track.audioPathFromRoot,
-    audioData: track.audioDataPathFromRoot,
-    audioKey: track.audioDataKey,
     page: track.contentPathFromRoot,
     artwork: `./content/${track.trackFolder}/${track.artworkFileName}`
   }));
-  const audioDataScripts = album.tracks
-    .map((track) => `    <script src="${escapeHtml(track.audioDataPathFromRoot)}"></script>`)
-    .join('\n');
 
   return `<!doctype html>
 <html lang="en">
@@ -907,7 +902,6 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
       <div id="mobileTracklistItems"></div>
     </aside>
     <div class="party-div" aria-hidden="true"></div>
-${audioDataScripts}
     <script src="./runtime-profile.js"></script>
     <script>
       const playlist = ${JSON.stringify(playlist)};
@@ -1393,6 +1387,8 @@ ${audioDataScripts}
       applyRuntimeProfile();
       window.addEventListener('album-runtime-profile-change', applyRuntimeProfile);
     </script>
+    <script src="./butterchurn.min.js"></script>
+    <script src="./butterchurnPresetsMinimal.min.js"></script>
     <script src="./party-mode.js"></script>
   </body>
 </html>
@@ -1584,22 +1580,14 @@ export function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, cu
       </section>
     </main>
     <div class="party-div" aria-hidden="true"></div>
-    <script src="../../${escapeHtml(track.audioDataPathFromRoot.replace(/^\.\//, ''))}"></script>
     <script src="../../runtime-profile.js"></script>
     <script>
       const player = document.getElementById('player');
       const playSong = document.getElementById('playSong');
       const secondaryAction = document.getElementById('secondaryAction');
-      const audioKey = ${JSON.stringify(track.audioDataKey)};
       const shouldAutoplay = new URLSearchParams(window.location.search).get('autoplay') === '1';
 
-      window.albumRuntime.audioProvider.getAudioUrl({
-        src: player.getAttribute('src'),
-        audioKey
-      }).then((url) => {
-        player.src = url;
-        player.preload = window.albumRuntime.getProfile().player.preload;
-      }).catch((err) => console.error(err));
+      player.preload = window.albumRuntime.getProfile().player.preload;
 
       function isPlayerActivelyPlaying() {
         return Boolean(!player.paused && !player.ended && player.readyState > 0);
@@ -1626,6 +1614,8 @@ export function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, cu
         player.play().catch((err) => console.error(err));
       }
     </script>
+    <script src="../../butterchurn.min.js"></script>
+    <script src="../../butterchurnPresetsMinimal.min.js"></script>
     <script src="../../party-mode.js"></script>
   </body>
 </html>

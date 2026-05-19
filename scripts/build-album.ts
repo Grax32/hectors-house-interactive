@@ -92,8 +92,6 @@ interface ResolvedTrack {
   wavOutputFileName: string;
   mp3OutputFileName: string;
   audioPathFromRoot: string;
-  audioDataPathFromRoot: string;
-  audioDataKey: string;
   contentPathFromRoot: string;
 }
 
@@ -269,13 +267,11 @@ function prepareContentAndMusic(album: ResolvedAlbum, options: BuildOptions): vo
 
   const contentRoot = path.join(DIST_DIR, 'content');
   const musicRoot = path.join(DIST_DIR, 'music');
-  const musicAudioDataRoot = path.join(musicRoot, 'audio-data');
   fs.mkdirSync(contentRoot, { recursive: true });
   fs.mkdirSync(musicRoot, { recursive: true });
   if (options.includeWavFiles) {
     fs.mkdirSync(path.join(musicRoot, 'wav'), { recursive: true });
   }
-  fs.mkdirSync(musicAudioDataRoot, { recursive: true });
 
   if (album.albumArtworkSourcePath && fs.existsSync(album.albumArtworkSourcePath) && album.albumArtworkFileName) {
     fs.copyFileSync(album.albumArtworkSourcePath, path.join(contentRoot, album.albumArtworkFileName));
@@ -315,17 +311,6 @@ function prepareContentAndMusic(album: ResolvedAlbum, options: BuildOptions): vo
     args.push('-c:a', 'libmp3lame', '-b:a', '192k', '-id3v2_version', '3', mp3OutputPath);
     execFileSync(ffmpegPath, args, { stdio: 'pipe' });
 
-    const audioDataBase64 = fs.readFileSync(mp3OutputPath).toString('base64');
-    const audioDataScript = [
-      'window.__albumAudioData = window.__albumAudioData || {};',
-      `window.__albumAudioData[${JSON.stringify(track.audioDataKey)}] = ${JSON.stringify(audioDataBase64)};`
-    ].join('\n');
-    fs.writeFileSync(
-      path.join(DIST_DIR, track.audioDataPathFromRoot.replace(/^\.\//, '')),
-      `${audioDataScript}\n`,
-      'utf-8'
-    );
-
     playlistLines.push(`#EXTINF:-1,${track.title}`);
     playlistLines.push(track.mp3OutputFileName);
     console.log(`[OK] Packaged track: ${track.trackFolder}`);
@@ -360,8 +345,10 @@ function buildPartyModeLoaderScript(): string {
   var isRendering = false;
   var presetNames = [];
   var debugPrefix = '[Party Mode]';
+  var debugEnabled = false;
   var activeProfile = null;
   var profilePromise = null;
+  var startPromise = null;
   var lastRenderTime = 0;
   var currentPresetName = '';
   var lastAudioSrc = '';
@@ -378,6 +365,10 @@ function buildPartyModeLoaderScript(): string {
   }
 
   function log(message, details) {
+    if (!debugEnabled) {
+      return;
+    }
+
     if (details === undefined) {
       console.log(debugPrefix, message);
       return;
@@ -644,68 +635,80 @@ function buildPartyModeLoaderScript(): string {
   }
 
   async function maybeStartVisualizer() {
-    var audio = getAudio();
-    if (!isEnabled || !isAudioPlaying(audio)) {
-      updateButtonState();
-      return;
+    if (startPromise) {
+      return startPromise;
     }
 
-    if (isRendering) {
-      updateButtonState();
-      return;
-    }
-
-    if (!window.butterchurn || !window.butterchurn.createVisualizer) {
-      warn('Could not start: Butterchurn is unavailable.');
-      updateButtonState();
-      return;
-    }
-
-    if (!ensureCanvas()) {
-      warn('Could not start: add a div with class "party-div".');
-      updateButtonState();
-      return;
-    }
-
-    await getPerformanceProfile();
-    resizeCanvas();
-
-    if (!audioContext) {
-      var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-      if (AudioContextCtor) {
-        audioContext = new AudioContextCtor();
-        log('Created audio context.');
+    startPromise = (async function () {
+      var audio = getAudio();
+      if (!isEnabled || !isAudioPlaying(audio)) {
+        updateButtonState();
+        return;
       }
-    }
 
-    if (audioContext && audioContext.state === 'suspended') {
+      if (isRendering) {
+        updateButtonState();
+        return;
+      }
+
+      if (!window.butterchurn || !window.butterchurn.createVisualizer) {
+        warn('Could not start: Butterchurn is unavailable.');
+        updateButtonState();
+        return;
+      }
+
+      if (!ensureCanvas()) {
+        warn('Could not start: add a div with class "party-div".');
+        updateButtonState();
+        return;
+      }
+
+      await getPerformanceProfile();
+      resizeCanvas();
+
+      if (!audioContext) {
+        var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextCtor) {
+          audioContext = new AudioContextCtor();
+          log('Created audio context.');
+        }
+      }
+
+      if (audioContext && audioContext.state === 'suspended') {
+        try {
+          await audioContext.resume();
+        } catch (error) {
+          warn('Could not resume audio context.', error);
+        }
+      }
+
       try {
-        await audioContext.resume();
+        connectAudio(audio);
       } catch (error) {
-        warn('Could not resume audio context.', error);
+        warn('Could not connect audio to Butterchurn visualizer.', error);
+        updateButtonState();
+        return;
       }
-    }
+
+      isRendering = true;
+      target.classList.add('is-active');
+      document.body.classList.add('party-mode-active');
+      updateButtonState();
+      window.cancelAnimationFrame(renderFrame);
+      lastRenderTime = 0;
+      log('Party visualizer started.', {
+        profile: activeProfile && activeProfile.name,
+        resolution: activeProfile && (getVisualizerProfile().width + 'x' + getVisualizerProfile().height),
+        fps: activeProfile && getVisualizerProfile().fps
+      });
+      render();
+    })();
 
     try {
-      connectAudio(audio);
-    } catch (error) {
-      warn('Could not connect audio to Butterchurn visualizer.', error);
-      updateButtonState();
-      return;
+      await startPromise;
+    } finally {
+      startPromise = null;
     }
-
-    isRendering = true;
-    target.classList.add('is-active');
-    document.body.classList.add('party-mode-active');
-    updateButtonState();
-    window.cancelAnimationFrame(renderFrame);
-    lastRenderTime = 0;
-    log('Party visualizer started.', {
-      profile: activeProfile && activeProfile.name,
-      resolution: activeProfile && (getVisualizerProfile().width + 'x' + getVisualizerProfile().height),
-      fps: activeProfile && getVisualizerProfile().fps
-    });
-    render();
   }
 
   function stopVisualizer() {
@@ -845,26 +848,10 @@ function buildPartyModeLoaderScript(): string {
 function writePartyModeScript(): void {
   const butterchurnPath = require.resolve('butterchurn/lib/butterchurn.min.js');
   const presetsPath = require.resolve('butterchurn-presets/lib/butterchurnPresetsMinimal.min.js');
-  const wrapUmdLibrary = (libraryName: string, source: string): string => `
-;(function () {
-  var previousModule = window.module;
-  var previousExports = window.exports;
-  var module = { exports: {} };
-  var exports = module.exports;
-${source}
-  window.${libraryName} = window.${libraryName} || module.exports.default || module.exports;
-  window.module = previousModule;
-  window.exports = previousExports;
-})();
-`;
-
-  const parts = [
-    wrapUmdLibrary('butterchurn', fs.readFileSync(butterchurnPath, 'utf-8')),
-    wrapUmdLibrary('butterchurnPresets', fs.readFileSync(presetsPath, 'utf-8')),
-    buildPartyModeLoaderScript()
-  ];
-
-  fs.writeFileSync(path.join(DIST_DIR, 'party-mode.js'), `${parts.join('\n\n')}\n`, 'utf-8');
+  fs.copyFileSync(butterchurnPath, path.join(DIST_DIR, 'butterchurn.min.js'));
+  fs.copyFileSync(presetsPath, path.join(DIST_DIR, 'butterchurnPresetsMinimal.min.js'));
+  fs.writeFileSync(path.join(DIST_DIR, 'party-mode.js'), buildPartyModeLoaderScript(), 'utf-8');
+  console.log('[OK] Copied Butterchurn runtime files: butterchurn.min.js, butterchurnPresetsMinimal.min.js');
   console.log('[OK] Wrote party mode bundle: party-mode.js');
 }
 
@@ -907,7 +894,9 @@ function resetDistDirectory(): void {
     'START-HERE.html',
     'play-album.html',
     'runtime-profile.js',
-    'party-mode.js'
+    'party-mode.js',
+    'butterchurn.min.js',
+    'butterchurnPresetsMinimal.min.js'
   ];
 
   if (!fs.existsSync(DIST_DIR)) {
@@ -1157,8 +1146,6 @@ function resolvePrimaryAlbum(): ResolvedAlbum | null {
         wavOutputFileName,
         mp3OutputFileName,
         audioPathFromRoot: `./music/${mp3OutputFileName}`,
-        audioDataPathFromRoot: `./music/audio-data/${trackFolder}.js`,
-        audioDataKey: trackFolder,
         contentPathFromRoot: `./content/${trackFolder}/index.html`
       };
     })

@@ -147,34 +147,8 @@ export function buildRuntimeProfileScript(): string {
     return cachedProfile;
   }
 
-  function base64ToBlobUrl(base64, mimeType) {
-    var binary = atob(base64);
-    var chunks = [];
-    for (var offset = 0; offset < binary.length; offset += 32768) {
-      var slice = binary.slice(offset, offset + 32768);
-      var bytes = new Uint8Array(slice.length);
-      for (var i = 0; i < slice.length; i += 1) {
-        bytes[i] = slice.charCodeAt(i);
-      }
-      chunks.push(bytes);
-    }
-    return URL.createObjectURL(new Blob(chunks, { type: mimeType || 'audio/mpeg' }));
-  }
-
   var audioProvider = {
     async getAudioUrl(item) {
-      window.__albumAudioData = window.__albumAudioData || {};
-
-      if (item.blobUrl) {
-        return item.blobUrl;
-      }
-
-      var encodedAudio = window.__albumAudioData[item.audioKey];
-      if (encodedAudio) {
-        item.blobUrl = base64ToBlobUrl(encodedAudio, 'audio/mpeg');
-        return item.blobUrl;
-      }
-
       return item.src;
     }
   };
@@ -183,8 +157,7 @@ export function buildRuntimeProfileScript(): string {
     profiles: PROFILE_DEFINITIONS,
     getProfile: getProfile,
     refreshProfile: refreshProfile,
-    audioProvider: audioProvider,
-    base64ToBlobUrl: base64ToBlobUrl
+    audioProvider: audioProvider
   };
 
   function boot() {
