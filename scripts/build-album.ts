@@ -445,8 +445,8 @@ function buildPartyModeLoaderScript(): string {
       '.party-div{display:none;position:fixed;inset:0;z-index:1;background:transparent;opacity:.75;pointer-events:none}',
       '.party-div.is-active{display:block}',
       '.party-div canvas{display:block;width:100%;height:100%;object-fit:cover}',
-      'body.party-mode-active main:not([data-view="mini"]):not([data-view="micro"]):not([data-view="party"]),body.party-mode-active .wrap{position:relative;z-index:2}',
-      'body.party-mode-active .panel[data-view="mini"],body.party-mode-active .panel[data-view="micro"]{position:fixed;left:24px;bottom:24px;z-index:2}',
+      'body.party-mode-active main:not([data-view="mini"]):not([data-view="party"]),body.party-mode-active .wrap{position:relative;z-index:2}',
+      'body.party-mode-active .panel[data-view="mini"]{position:fixed;left:24px;bottom:24px;z-index:2}',
       'body.party-mode-active main.panel{background:rgba(3,3,10,.9)}',
       'body.party-mode-active{overflow:hidden}'
     ].join('\\n');

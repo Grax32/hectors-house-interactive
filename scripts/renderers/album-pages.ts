@@ -337,10 +337,6 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         display: block;
         overflow: hidden;
       }
-      body.player-view-micro {
-        display: block;
-        overflow: hidden;
-      }
       .panel {
         position: relative;
         width: min(760px, 94vw);
@@ -349,39 +345,62 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         padding: 22px;
         background: var(--surface);
       }
-      .view-switcher {
+      .desktop-top-actions {
         position: absolute;
         top: 18px;
         right: 18px;
+        z-index: 6;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: opacity 180ms ease;
+      }
+      .desktop-action-btn {
+        min-height: 42px;
         display: inline-flex;
-        overflow: hidden;
+        align-items: center;
+        justify-content: center;
         border: 1px solid var(--line);
         border-radius: 999px;
         background: rgba(3, 3, 10, 0.78);
+        color: var(--ink);
         box-shadow: inset 0 0 16px rgba(124, 44, 255, 0.2);
       }
-      .view-btn {
+      .desktop-exit-btn {
         width: 42px;
-        height: 42px;
         padding: 0;
-        border: 0;
-        border-left: 1px solid var(--line);
-        border-radius: 0;
-        background: transparent;
-        color: var(--ink);
-        font-size: 1.2rem;
+        font-size: 1.45rem;
         line-height: 1;
       }
-      .view-btn.is-active {
-        color: var(--bg);
-        background: var(--accent);
-        box-shadow: 0 0 22px rgba(124, 44, 255, 0.62);
+      .desktop-fullscreen-btn {
+        padding: 0 16px;
+        font-weight: 800;
+      }
+      .is-fullscreen .desktop-fullscreen-btn,
+      .standard-party-controls-hidden .desktop-fullscreen-btn {
+        display: none;
+      }
+      @media (hover: hover) and (pointer: fine) {
+        body.party-mode-active:not(.runtime-profile-mobile).player-view-standard.standard-party-controls-hidden main.panel,
+        body.party-mode-active:not(.runtime-profile-mobile).player-view-standard.standard-party-controls-hidden .player-layout,
+        body.party-mode-active:not(.runtime-profile-mobile).player-view-standard.standard-party-controls-hidden .desktop-top-actions,
+        body.party-mode-active:not(.runtime-profile-mobile).player-view-standard.standard-party-controls-hidden .party-mode-button {
+          opacity: 0;
+          pointer-events: none;
+        }
+        body.party-mode-active:not(.runtime-profile-mobile).player-view-standard main.panel,
+        body.party-mode-active:not(.runtime-profile-mobile).player-view-standard .player-layout,
+        body.party-mode-active:not(.runtime-profile-mobile).player-view-standard .desktop-top-actions,
+        body.party-mode-active:not(.runtime-profile-mobile).player-view-standard .party-mode-button {
+          transition: opacity 220ms ease;
+        }
       }
       .player-layout {
         display: grid;
         grid-template-columns: minmax(180px, 280px) 1fr;
         gap: 20px;
         align-items: start;
+        padding-top: 46px;
       }
       .now-art {
         margin: 0;
@@ -399,31 +418,94 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         aspect-ratio: 1/1;
         object-fit: cover;
       }
-      .now-title {
-        margin: 12px 0 0;
-        color: var(--hero);
-        font-family: "Cinzel", Georgia, serif;
-        font-size: 1rem;
-        font-weight: 700;
-        line-height: 1.2;
-        text-align: center;
-      }
+      .now-title { display: none; }
       .player-main { min-width: 0; }
       h1 {
-        margin-top: 0;
+        margin: 0 0 10px;
         color: var(--hero);
         font-family: "Cinzel", Georgia, serif;
+        font-size: clamp(2.1rem, 5vw, 3.6rem);
         font-weight: 800;
+        line-height: 1.05;
         letter-spacing: 0;
       }
       .sub {
         color: var(--muted);
-        margin-bottom: 14px;
+        margin: 0 0 18px;
         font-family: "Cormorant Garamond", Georgia, serif;
         font-size: 1.2rem;
         font-weight: 600;
       }
-      .controls { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0 18px; }
+      .controls {
+        display: grid;
+        grid-template-columns: 48px 74px 48px;
+        column-gap: 28px;
+        justify-content: center;
+        align-items: center;
+        margin: 20px 0 22px;
+      }
+      .transport-control,
+      .transport-control-small {
+        appearance: none;
+        -webkit-appearance: none;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 999px;
+        background: rgba(7, 4, 16, 0.58);
+        color: white;
+        box-shadow:
+          inset 0 0 18px rgba(139, 50, 255, 0.22),
+          0 0 24px rgba(139, 50, 255, 0.22);
+      }
+      .transport-control {
+        width: 74px;
+        height: 74px;
+        border-color: rgba(173, 70, 255, 0.82);
+        font-size: 2.1rem;
+        box-shadow:
+          inset 0 0 20px rgba(139, 50, 255, 0.3),
+          0 0 30px rgba(139, 50, 255, 0.58);
+      }
+      .transport-control-small {
+        width: 48px;
+        height: 48px;
+        font-size: 1.25rem;
+      }
+      .transport-play-icon {
+        display: grid;
+        place-items: center;
+        position: relative;
+        width: 30px;
+        height: 30px;
+        line-height: 1;
+      }
+      .transport-play-icon::before {
+        content: '';
+        width: 0;
+        height: 0;
+        border-top: 12px solid transparent;
+        border-bottom: 12px solid transparent;
+        border-left: 18px solid currentColor;
+        transform: translateX(2px);
+      }
+      .transport-control.is-playing .transport-play-icon {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 7px;
+      }
+      .transport-control.is-playing .transport-play-icon::before,
+      .transport-control.is-playing .transport-play-icon::after {
+        content: '';
+        width: 7px;
+        height: 24px;
+        border-radius: 2px;
+        background: currentColor;
+        border: 0;
+        transform: none;
+      }
       button, a {
         border: 1px solid ${theme.line};
         background: var(--bg);
@@ -434,17 +516,44 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         cursor: pointer;
       }
       button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700; }
-      ol { margin: 0; padding-left: 20px; }
-      li { margin: 8px 0; }
-      .now { color: var(--accent); font-weight: 700; }
-      .track-select {
-        padding: 0;
-        border: 0;
-        background: transparent;
-        color: inherit;
-        font: inherit;
-        font-weight: inherit;
+      .next-up {
+        display: grid;
+        width: 100%;
+        margin-top: 24px;
+        padding: 18px 22px;
+        border: 1px solid rgba(196, 92, 255, 0.32);
+        border-radius: 18px;
+        background:
+          linear-gradient(135deg, rgba(139, 50, 255, 0.16), rgba(55, 240, 231, 0.08)),
+          rgba(7, 4, 16, 0.46);
+        color: var(--ink);
         text-align: left;
+        box-shadow:
+          inset 0 0 22px rgba(139, 50, 255, 0.12),
+          0 0 28px rgba(139, 50, 255, 0.14);
+        transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+      }
+      .next-up:hover {
+        transform: translateY(-2px);
+        border-color: rgba(55, 240, 231, 0.54);
+        box-shadow:
+          inset 0 0 24px rgba(139, 50, 255, 0.16),
+          0 0 32px rgba(139, 50, 255, 0.24);
+      }
+      .next-up-label {
+        color: var(--accent);
+        font-size: 0.74rem;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .next-up-title {
+        margin-top: 5px;
+        color: white;
+        font-family: "Cinzel", Georgia, serif;
+        font-size: clamp(1.2rem, 2.8vw, 1.8rem);
+        font-weight: 800;
+        line-height: 1.08;
       }
       .panel[data-view="mini"] {
         position: fixed;
@@ -455,25 +564,20 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         border-radius: 22px;
         background: rgba(3, 3, 10, 0.9);
       }
-      .panel[data-view="mini"] .view-switcher {
-        top: 10px;
-        right: 10px;
-        transform: scale(0.82);
-        transform-origin: top right;
+      .panel[data-view="mini"] .desktop-top-actions {
+        display: none;
       }
       .panel[data-view="mini"] .player-layout {
         grid-template-columns: 174px 1fr;
         align-items: center;
+        padding-top: 0;
       }
       .panel[data-view="mini"] .now-title,
       .panel[data-view="mini"] h1,
+      .panel[data-view="mini"] .sub,
       .panel[data-view="mini"] .controls,
-      .panel[data-view="mini"] ol {
+      .panel[data-view="mini"] .next-up {
         display: none;
-      }
-      .panel[data-view="mini"] .sub {
-        margin: 0 0 18px;
-        font-size: 1.35rem;
       }
       .panel[data-view="mini"] .player-main::before {
         content: attr(data-current-title);
@@ -484,46 +588,6 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         font-weight: 800;
       }
       .panel[data-view="mini"] audio { width: 100%; }
-      .panel[data-view="micro"] {
-        position: fixed;
-        left: 24px;
-        bottom: 24px;
-        width: min(380px, 88vw);
-        padding: 12px 14px;
-        border-radius: 999px;
-        background: rgba(3, 3, 10, 0.92);
-      }
-      .panel[data-view="micro"] .now-art,
-      .panel[data-view="micro"] h1,
-      .panel[data-view="micro"] .sub,
-      .panel[data-view="micro"] .controls,
-      .panel[data-view="micro"] ol,
-      .panel[data-view="micro"] audio {
-        display: none;
-      }
-      .panel[data-view="micro"] .player-layout {
-        display: block;
-      }
-      .panel[data-view="micro"] .view-switcher {
-        top: 50%;
-        right: 8px;
-        transform: translateY(-50%) scale(0.58);
-        transform-origin: center right;
-      }
-      .panel[data-view="micro"] .view-btn {
-        width: 34px;
-        height: 34px;
-      }
-      .panel[data-view="micro"] .player-main::before {
-        content: "▰▰▌";
-        margin-right: 18px;
-        color: var(--ink);
-      }
-      .panel[data-view="micro"] .player-main::after {
-        content: attr(data-current-title);
-        color: var(--ink);
-        font-weight: 800;
-      }
       .mobile-party-ui,
       .mobile-tracklist {
         display: none;
@@ -542,6 +606,15 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         min-height: 64px;
         max-width: min(90vw, 280px);
         width: min(90vw, 280px);
+      }
+      .autoplay-scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 8;
+        background: rgba(0, 0, 0, 0.7);
+      }
+      .autoplay-scrim[hidden] {
+        display: none;
       }
       .autoplay-cta[hidden] {
         display: none;
@@ -600,13 +673,14 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         body.runtime-profile-mobile.player-view-party .art-backdrop {
           display: block;
         }
-        body.runtime-profile-mobile.party-mode-active .art-backdrop img,
         body.runtime-profile-mobile.player-view-party .art-backdrop img {
           object-fit: contain;
+          opacity: 1;
+        }
+        body.runtime-profile-mobile.party-mode-active .art-backdrop img {
           opacity: 0.75;
         }
-        body.runtime-profile-mobile.party-mode-active .party-div,
-        body.runtime-profile-mobile.player-view-party .party-div {
+        body.runtime-profile-mobile.party-mode-active .party-div {
           display: block;
           z-index: 2;
           opacity: 0.75;
@@ -643,8 +717,8 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         }
         body.runtime-profile-mobile.party-mode-active .player-layout,
         body.runtime-profile-mobile.player-view-party .player-layout,
-        body.runtime-profile-mobile.party-mode-active .view-switcher,
-        body.runtime-profile-mobile.player-view-party .view-switcher,
+        body.runtime-profile-mobile.party-mode-active .desktop-top-actions,
+        body.runtime-profile-mobile.player-view-party .desktop-top-actions,
         body.runtime-profile-mobile.party-mode-active .player-main > h1,
         body.runtime-profile-mobile.player-view-party .player-main > h1,
         body.runtime-profile-mobile.party-mode-active .player-main > .sub,
@@ -653,8 +727,8 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         body.runtime-profile-mobile.player-view-party .player-main > audio,
         body.runtime-profile-mobile.party-mode-active .player-main > .controls,
         body.runtime-profile-mobile.player-view-party .player-main > .controls,
-        body.runtime-profile-mobile.party-mode-active .player-main > ol,
-        body.runtime-profile-mobile.player-view-party .player-main > ol {
+        body.runtime-profile-mobile.party-mode-active .next-up,
+        body.runtime-profile-mobile.player-view-party .next-up {
           display: none;
         }
         body.runtime-profile-mobile.party-mode-active .mobile-party-ui,
@@ -674,6 +748,7 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           gap: 16px;
           align-items: flex-start;
           padding: 22px 20px 0;
+          transition: opacity 220ms ease, transform 220ms ease;
         }
         .mobile-party-top > div {
           min-width: 0;
@@ -733,6 +808,12 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           background: rgba(7, 4, 16, 0.1);
           box-sizing: border-box;
           pointer-events: auto;
+          transition: opacity 220ms ease, transform 220ms ease;
+        }
+        body.runtime-profile-mobile.mobile-controls-idle .mobile-party-bottom {
+          opacity: 0;
+          pointer-events: none;
+          transform: translateY(14px);
         }
         .mobile-time-row {
           display: grid;
@@ -983,7 +1064,6 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         body { place-items: start center; padding: 16px 0; }
         .player-layout { grid-template-columns: 1fr; }
         .now-art { width: min(280px, 100%); margin: 0 auto; }
-        .view-switcher { position: static; margin: 0 0 16px auto; width: fit-content; }
         .panel[data-view="mini"] .player-layout { grid-template-columns: 1fr; }
       }
     </style>
@@ -993,11 +1073,9 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
       <img id="backdropArt" src="${escapeHtml(playlist[0]?.artwork || album.artworkPathFromRoot)}" alt="" />
     </div>
     <main class="panel" id="playerPanel" data-view="standard">
-      <nav class="view-switcher" aria-label="Player view">
-        <button class="view-btn" type="button" data-view="micro" aria-label="Micro view" title="Micro">−</button>
-        <button class="view-btn" type="button" data-view="mini" aria-label="Mini view" title="Mini">▦</button>
-        <button class="view-btn is-active" type="button" data-view="standard" aria-label="Standard view" title="Standard">□</button>
-        <button class="view-btn" type="button" data-view="fullscreen" aria-label="Full Screen view" title="Full Screen">⛶</button>
+      <nav class="desktop-top-actions" aria-label="Player actions">
+        <button class="desktop-action-btn desktop-fullscreen-btn" id="fullscreenBtn" type="button">Full Screen</button>
+        <a class="desktop-action-btn desktop-exit-btn" href="./START-HERE.html" aria-label="Return to Start" title="Return to Start">←</a>
       </nav>
       <section class="player-layout">
         <figure class="now-art">
@@ -1005,24 +1083,27 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           <figcaption id="nowTitle" class="now-title">${escapeHtml(playlist[0]?.title || album.title)}</figcaption>
         </figure>
         <section class="player-main" id="playerMain" data-current-title="${escapeHtml(playlist[0]?.title || album.title)}">
-          <h1>Play Album</h1>
+          <h1 id="playerTitle">${escapeHtml(playlist[0]?.title || album.title)}</h1>
           <p class="sub">${escapeHtml(album.title)}</p>
           <audio id="player" controls style="width:100%;"></audio>
-          <div class="controls">
-            <button class="primary" id="playBtn">Play Album</button>
-            <button id="nextBtn">Next Song</button>
-            <a href="./START-HERE.html">Back to Album</a>
+          <div class="controls" aria-label="Album playback controls">
+            <button class="transport-control-small" id="prevBtn" type="button" aria-label="Previous song">◀</button>
+            <button class="transport-control" id="playBtn" type="button" aria-label="Play"><span class="transport-play-icon" aria-hidden="true"></span></button>
+            <button class="transport-control-small" id="nextBtn" type="button" aria-label="Next song">▶</button>
           </div>
-          <ol id="list"></ol>
         </section>
       </section>
+      <button class="next-up" id="nextUpBtn" type="button" aria-label="Play next song">
+        <span class="next-up-label">Next Up</span>
+        <span class="next-up-title" id="nextUpTitle">${escapeHtml(playlist[1]?.title || playlist[0]?.title || album.title)}</span>
+      </button>
       <section class="mobile-party-ui" id="mobilePartyUi" aria-label="Mobile party player">
         <header class="mobile-party-top">
           <div>
             <p class="mobile-party-kicker" id="mobileTrackTitle">${escapeHtml(playlist[0]?.title || album.title)}</p>
             <p class="mobile-party-title">${escapeHtml(album.title)}</p>
           </div>
-          <a class="mobile-exit-btn" href="./START-HERE.html" aria-label="Back to album">×</a>
+          <a class="mobile-exit-btn" href="./START-HERE.html" aria-label="Return to Start" title="Return to Start">←</a>
         </header>
         <div class="mobile-party-spacer" aria-hidden="true"></div>
         <footer class="mobile-party-bottom">
@@ -1043,6 +1124,7 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         </footer>
       </section>
     </main>
+    <div class="autoplay-scrim" id="autoplayScrim" hidden></div>
     <div class="autoplay-cta" id="autoplayCta" hidden>
       <button id="autoplayMusicBtn" class="autoplay-cta-button" type="button" aria-label="Start music playback">
         <span class="autoplay-cta-button-icon">▶</span>
@@ -1064,13 +1146,16 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
       const player = document.getElementById('player');
       const playerPanel = document.getElementById('playerPanel');
       const playerMain = document.getElementById('playerMain');
-      const list = document.getElementById('list');
+      const playerTitle = document.getElementById('playerTitle');
       const backdropArt = document.getElementById('backdropArt');
       const nowArt = document.getElementById('nowArt');
       const nowTitle = document.getElementById('nowTitle');
+      const prevBtn = document.getElementById('prevBtn');
       const playBtn = document.getElementById('playBtn');
       const nextBtn = document.getElementById('nextBtn');
-      const viewButtons = Array.from(document.querySelectorAll('.view-btn'));
+      const nextUpBtn = document.getElementById('nextUpBtn');
+      const nextUpTitle = document.getElementById('nextUpTitle');
+      const fullscreenBtn = document.getElementById('fullscreenBtn');
       const mobilePartyUi = document.getElementById('mobilePartyUi');
       const mobileTrackTitle = document.getElementById('mobileTrackTitle');
       const mobileElapsed = document.getElementById('mobileElapsed');
@@ -1083,6 +1168,7 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
       const mobileTracklistBtn = document.getElementById('mobileTracklistBtn');
       const mobileTracklist = document.getElementById('mobileTracklist');
       const mobileTracklistItems = document.getElementById('mobileTracklistItems');
+      const autoplayScrim = document.getElementById('autoplayScrim');
       const autoplayCta = document.getElementById('autoplayCta');
       const autoplayMusicBtn = document.getElementById('autoplayMusicBtn');
       const autoplayPartyBtn = document.getElementById('autoplayPartyBtn');
@@ -1092,6 +1178,7 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
       let lastTapTime = 0;
       let pointerStart = null;
       let longPressTimer = 0;
+      let standardControlsTimer = 0;
       let wakeLock = null;
       let mobileProgressRaf = 0;
       let lastMobileElapsed = '';
@@ -1106,10 +1193,9 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
       }
 
       function renderList() {
-        list.innerHTML = playlist.map((item, i) => {
-          const cls = i === index ? 'class="now"' : '';
-          return '<li ' + cls + '><button class="track-select" type="button" data-track-index="' + i + '">' + item.title + '</button></li>';
-        }).join('');
+        const nextIndex = (index + 1) % playlist.length;
+        nextUpTitle.textContent = playlist[nextIndex].title;
+        nextUpBtn.setAttribute('aria-label', 'Play next song: ' + playlist[nextIndex].title);
         mobileTracklistItems.innerHTML = playlist.map((item, i) => {
           const active = i === index ? ' is-active' : '';
           const number = String(i + 1).padStart(2, '0');
@@ -1143,6 +1229,9 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         if (!autoplayCta) {
           return;
         }
+        if (autoplayScrim) {
+          autoplayScrim.hidden = !isVisible;
+        }
         autoplayCta.hidden = !isVisible;
       }
 
@@ -1166,6 +1255,8 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           mobileProgressFill.style.width = progressWidth;
           lastMobileProgressWidth = progressWidth;
         }
+        playBtn.classList.toggle('is-playing', !player.paused);
+        playBtn.setAttribute('aria-label', playAriaLabel);
         mobilePlayBtn.classList.toggle('is-playing', !player.paused);
         if (playAriaLabel !== lastMobilePlayAriaLabel) {
           mobilePlayBtn.setAttribute('aria-label', playAriaLabel);
@@ -1225,22 +1316,21 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         nowArt.alt = playlist[index].title + ' artwork';
         backdropArt.src = playlist[index].artwork;
         nowTitle.textContent = playlist[index].title;
+        playerTitle.textContent = playlist[index].title;
         playerMain.dataset.currentTitle = playlist[index].title;
         mobileTrackTitle.textContent = playlist[index].title;
         renderList();
         updateMobileProgress();
       }
 
-      async function requestFullscreenMicro() {
+      async function requestFullscreen() {
         if (document.fullscreenElement) {
           if (document.exitFullscreen) {
             try { await document.exitFullscreen(); } catch (err) { console.error(err); }
           }
-          setView('standard');
           return;
         }
 
-        setView('micro', false);
         try {
           if (document.documentElement.requestFullscreen) {
             await document.documentElement.requestFullscreen();
@@ -1251,18 +1341,24 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
       }
 
       function setView(view, persist = true) {
-        if (!['standard', 'mini', 'micro', 'party'].includes(view)) {
+        if (view === 'micro') {
+          view = 'mini';
+        }
+        if (!['standard', 'mini', 'party'].includes(view)) {
           view = 'standard';
         }
         playerPanel.dataset.view = view;
-        document.body.classList.remove('player-view-standard', 'player-view-mini', 'player-view-micro', 'player-view-party');
+        document.body.classList.remove('player-view-standard', 'player-view-mini', 'player-view-party');
         document.body.classList.add('player-view-' + view);
-        viewButtons.forEach((button) => {
-          button.classList.toggle('is-active', button.dataset.view === view);
-        });
         if (persist && view !== 'party') {
           localStorage.setItem('albumPlayerView', view);
         }
+        updateFullscreenState();
+        syncDesktopPartyControls();
+      }
+
+      function updateFullscreenState() {
+        document.body.classList.toggle('is-fullscreen', Boolean(document.fullscreenElement));
       }
 
       function isMobileProfile() {
@@ -1320,18 +1416,49 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         enterMobilePartyView();
       }
 
-      viewButtons.forEach((button) => {
-        button.addEventListener('click', async () => {
-          if (button.dataset.view === 'fullscreen') {
-            await requestFullscreenMicro();
-            return;
+      function isDesktopStandardPartyMode() {
+        return Boolean(
+          !isMobileProfile() &&
+          playerPanel.dataset.view === 'standard' &&
+          window.albumPartyMode &&
+          window.albumPartyMode.isEnabled()
+        );
+      }
+
+      function syncDesktopPartyControls() {
+        window.clearTimeout(standardControlsTimer);
+        if (!isDesktopStandardPartyMode()) {
+          document.body.classList.remove('standard-party-controls-hidden');
+          return;
+        }
+        showStandardControlsTemporarily();
+      }
+
+      function showStandardControlsTemporarily() {
+        window.clearTimeout(standardControlsTimer);
+        if (!isDesktopStandardPartyMode()) {
+          document.body.classList.remove('standard-party-controls-hidden');
+          return;
+        }
+        document.body.classList.remove('standard-party-controls-hidden');
+        standardControlsTimer = window.setTimeout(() => {
+          if (isDesktopStandardPartyMode()) {
+            document.body.classList.add('standard-party-controls-hidden');
           }
-          setView(button.dataset.view);
-        });
+        }, 2400);
+      }
+
+      function handleStandardPartyActivity() {
+        showStandardControlsTemporarily();
+      }
+
+      fullscreenBtn.addEventListener('click', async () => {
+        await requestFullscreen();
       });
 
       document.addEventListener('fullscreenchange', () => {
-        if (!document.fullscreenElement) {
+        updateFullscreenState();
+        if (!document.fullscreenElement && !isMobileProfile()) {
           setView('standard');
         }
       });
@@ -1351,16 +1478,6 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         return Boolean(!player.paused && !player.ended && player.readyState > 0);
       }
 
-      playerPanel.addEventListener('click', async (event) => {
-        if (playerPanel.dataset.view !== 'micro') {
-          return;
-        }
-        if (event.target.closest('.view-switcher')) {
-          return;
-        }
-        await togglePlayback();
-      });
-
       async function previousTrack() {
         const wasPlaying = isPlayerActivelyPlaying();
         await loadTrack(index - 1);
@@ -1373,6 +1490,7 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         const profile = window.albumRuntime.getProfile();
         player.preload = profile.player.preload;
         syncMobilePartyView();
+        syncDesktopPartyControls();
       }
 
       async function nextTrack() {
@@ -1399,14 +1517,6 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           (tagName && ['INPUT', 'TEXTAREA', 'SELECT'].includes(tagName))
         );
       }
-
-      list.addEventListener('click', async (event) => {
-        const button = event.target.closest('[data-track-index]');
-        if (!button) {
-          return;
-        }
-        await playTrack(Number(button.dataset.trackIndex));
-      });
 
       mobileTracklistItems.addEventListener('click', async (event) => {
         const button = event.target.closest('[data-track-index]');
@@ -1450,7 +1560,15 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         await togglePlayback();
       });
 
+      prevBtn.addEventListener('click', async () => {
+        await previousTrack();
+      });
+
       nextBtn.addEventListener('click', async () => {
+        await nextTrack();
+      });
+
+      nextUpBtn.addEventListener('click', async () => {
         await nextTrack();
       });
 
@@ -1484,8 +1602,12 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         if (window.albumPartyMode) {
           window.albumPartyMode.toggle();
         }
-        requestWakeLock();
+          requestWakeLock();
       });
+
+      document.addEventListener('pointermove', handleStandardPartyActivity);
+      document.addEventListener('mousemove', handleStandardPartyActivity);
+      document.addEventListener('pointerdown', handleStandardPartyActivity);
 
       playerPanel.addEventListener('pointerdown', (event) => {
         if (!isMobileProfile() || playerPanel.dataset.view !== 'party') {
@@ -1565,7 +1687,10 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         pointerStart = null;
       });
 
-      window.addEventListener('album-party-mode-change', syncMobilePartyView);
+      window.addEventListener('album-party-mode-change', () => {
+        syncMobilePartyView();
+        syncDesktopPartyControls();
+      });
       document.addEventListener('visibilitychange', async () => {
         if (wakeLock !== null && document.visibilityState === 'visible') {
           await requestWakeLock();
