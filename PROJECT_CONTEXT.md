@@ -16,13 +16,16 @@ Primary delivery target is a USB drive where dist/ is the drive root.
 2. The script reads album-contents.json.
 3. Content is copied into dist/ based on copy rules.
 4. WAV track audio is converted to MP3 in dist/ with artwork embedded when available.
-5. A guided dist/START-HERE.html file is generated for easy click-through navigation.
-6. dist/ is validated against required files and directories.
+5. A shared browser runtime profile script is generated at dist/runtime-profile.js.
+6. A guided dist/START-HERE.html file is generated for easy click-through navigation.
+7. dist/ is validated against required files and directories.
 
 ## Key Files
 
 - album-contents.json: content manifest and copy/validation rules.
 - scripts/build-album.ts: build and validation script.
+- scripts/runtime-client.ts: generated browser runtime for profiles and audio URL resolution.
+- scripts/renderers/: typed page renderers, shared renderer types, and HTML formatting helpers.
 - package.json: npm scripts and tooling dependencies.
 - tsconfig.json: TypeScript configuration for scripts.
 
@@ -91,6 +94,29 @@ song.json fields:
 - Keep scripts in scripts/.
 - Keep build logic deterministic and repeatable.
 - Prefer explicit manifest entries over implicit behavior.
+- Keep presentation behavior shared across web/mobile/offline by using runtime profiles instead of separate player implementations.
+- Keep generated page HTML in renderer modules instead of embedding large templates directly in the build orchestration script.
+
+## Runtime Architecture
+
+The generated browser runtime exposes `window.albumRuntime`.
+
+Profiles:
+
+- offline
+- desktop-high
+- desktop-low
+- mobile
+- kiosk
+
+Profiles currently tune:
+
+- Butterchurn render size, FPS, texture ratio, and preset-complexity intent.
+- Player preload behavior.
+- UI density.
+- Touch vs keyboard control intent.
+
+Audio is resolved through `window.albumRuntime.audioProvider.getAudioUrl(item)`. The current provider prefers embedded base64 audio data when present, then falls back to the normal file path. This keeps the player code from caring whether a future build uses embedded/offline assets or external web URLs.
 
 ## Open Decisions
 

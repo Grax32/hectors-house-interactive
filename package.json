@@ -6,9 +6,8 @@
   "scripts": {
     "build-album": "ts-node scripts/build-album.ts",
     "build-album-lite": "ts-node scripts/build-album.ts --lite",
-    "extract-palette": "ts-node scripts/extract-palette.ts",
     "write-dist": "ts-node scripts/write-dist.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "http-server dist -p 8080"
   },
   "keywords": [],
   "author": "",
@@ -16,7 +15,7 @@
   "type": "commonjs",
   "devDependencies": {
     "@types/node": "^25.8.0",
-    "colorthief": "^3.3.1",
+    "http-server": "^14.1.1",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   },

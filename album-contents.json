@@ -1,7 +1,9 @@
 {
   "files": [
+    "index.html",
     "START-HERE.html",
     "play-album.html",
+    "runtime-profile.js",
     "party-mode.js"
   ],
   "directories": [
