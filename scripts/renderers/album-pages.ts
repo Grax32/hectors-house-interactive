@@ -939,6 +939,7 @@ ${audioDataScripts}
       let lastTapTime = 0;
       let pointerStart = null;
       let longPressTimer = 0;
+      let wakeLock = null;
 
       async function getPlayableSrc(item) {
         return window.albumRuntime.audioProvider.getAudioUrl(item);
@@ -982,6 +983,34 @@ ${audioDataScripts}
         mobileTracklistBtn.textContent = enabled ? 'Party Mode On' : 'Party Mode Off';
         mobileTracklistBtn.classList.toggle('is-active', enabled);
         mobileTracklistBtn.setAttribute('aria-pressed', String(enabled));
+      }
+
+      async function requestWakeLock() {
+        if (!isMobileProfile() || !('wakeLock' in navigator) || player.paused) {
+          return;
+        }
+        try {
+          wakeLock = await navigator.wakeLock.request('screen');
+          wakeLock.addEventListener('release', () => {
+            wakeLock = null;
+          });
+        } catch (err) {
+          wakeLock = null;
+          console.warn('Screen wake lock was unavailable.', err);
+        }
+      }
+
+      async function releaseWakeLock() {
+        if (!wakeLock) {
+          return;
+        }
+        try {
+          await wakeLock.release();
+        } catch (err) {
+          console.warn('Screen wake lock could not be released.', err);
+        } finally {
+          wakeLock = null;
+        }
       }
 
       async function loadTrack(newIndex) {
@@ -1248,6 +1277,7 @@ ${audioDataScripts}
         if (window.albumPartyMode) {
           window.albumPartyMode.toggle();
         }
+        requestWakeLock();
       });
 
       playerPanel.addEventListener('pointerdown', (event) => {
@@ -1329,6 +1359,11 @@ ${audioDataScripts}
       });
 
       window.addEventListener('album-party-mode-change', syncMobilePartyView);
+      document.addEventListener('visibilitychange', async () => {
+        if (wakeLock !== null && document.visibilityState === 'visible') {
+          await requestWakeLock();
+        }
+      });
 
       player.addEventListener('ended', async () => {
         await loadTrack(index + 1);
@@ -1339,10 +1374,12 @@ ${audioDataScripts}
       player.addEventListener('play', () => {
         updateMobileProgress();
         showMobileControls();
+        requestWakeLock();
       });
       player.addEventListener('pause', () => {
         updateMobileProgress();
         showMobileControls();
+        releaseWakeLock();
       });
 
       loadTrack(0)
