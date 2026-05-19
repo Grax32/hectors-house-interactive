@@ -533,6 +533,301 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         color: var(--ink);
         font-weight: 800;
       }
+      .mobile-party-ui,
+      .mobile-tracklist {
+        display: none;
+      }
+      @media (max-width: 900px), (pointer: coarse) {
+        body.runtime-profile-mobile.party-mode-active,
+        body.runtime-profile-mobile.player-view-party {
+          display: block;
+          min-height: 100svh;
+          overflow: hidden;
+          background:
+            radial-gradient(circle at 50% 0%, rgba(139, 50, 255, 0.34), transparent 34%),
+            #000;
+          touch-action: none;
+        }
+        body.runtime-profile-mobile.party-mode-active .art-backdrop,
+        body.runtime-profile-mobile.player-view-party .art-backdrop {
+          display: block;
+        }
+        body.runtime-profile-mobile.party-mode-active .art-backdrop img,
+        body.runtime-profile-mobile.player-view-party .art-backdrop img {
+          object-fit: contain;
+          opacity: 0.75;
+        }
+        body.runtime-profile-mobile.party-mode-active .party-div,
+        body.runtime-profile-mobile.player-view-party .party-div {
+          z-index: 2;
+          opacity: 0.75;
+        }
+        body.runtime-profile-mobile.party-mode-active .party-mode-button,
+        body.runtime-profile-mobile.player-view-party .party-mode-button {
+          display: none;
+        }
+        body.runtime-profile-mobile.party-mode-active .panel,
+        body.runtime-profile-mobile.player-view-party .panel {
+          position: fixed;
+          inset: 0;
+          z-index: 3;
+          width: 100vw;
+          min-height: 100svh;
+          padding: max(18px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+          border: 0;
+          border-radius: 0;
+          background: linear-gradient(180deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.02) 36%, rgba(0, 0, 0, 0.74));
+          box-shadow: inset 0 0 0 1px rgba(139, 50, 255, 0.16);
+        }
+        body.runtime-profile-mobile.party-mode-active .panel::before,
+        body.runtime-profile-mobile.player-view-party .panel::before {
+          content: "";
+          position: fixed;
+          inset: 12px;
+          border: 1px solid rgba(167, 70, 255, 0.6);
+          border-radius: 28px;
+          box-shadow:
+            inset 0 0 24px rgba(139, 50, 255, 0.24),
+            0 0 42px rgba(139, 50, 255, 0.34);
+          pointer-events: none;
+        }
+        body.runtime-profile-mobile.party-mode-active .player-layout,
+        body.runtime-profile-mobile.player-view-party .player-layout,
+        body.runtime-profile-mobile.party-mode-active .view-switcher,
+        body.runtime-profile-mobile.player-view-party .view-switcher,
+        body.runtime-profile-mobile.party-mode-active .player-main > h1,
+        body.runtime-profile-mobile.player-view-party .player-main > h1,
+        body.runtime-profile-mobile.party-mode-active .player-main > .sub,
+        body.runtime-profile-mobile.player-view-party .player-main > .sub,
+        body.runtime-profile-mobile.party-mode-active .player-main > audio,
+        body.runtime-profile-mobile.player-view-party .player-main > audio,
+        body.runtime-profile-mobile.party-mode-active .player-main > .controls,
+        body.runtime-profile-mobile.player-view-party .player-main > .controls,
+        body.runtime-profile-mobile.party-mode-active .player-main > ol,
+        body.runtime-profile-mobile.player-view-party .player-main > ol {
+          display: none;
+        }
+        body.runtime-profile-mobile.party-mode-active .mobile-party-ui,
+        body.runtime-profile-mobile.player-view-party .mobile-party-ui {
+          position: relative;
+          z-index: 4;
+          display: grid;
+          grid-template-rows: auto 1fr auto;
+          min-height: calc(100svh - max(36px, env(safe-area-inset-top)) - max(36px, env(safe-area-inset-bottom)));
+          color: white;
+          pointer-events: none;
+          transition: opacity 220ms ease, transform 220ms ease;
+        }
+        body.mobile-controls-idle .mobile-party-ui {
+          opacity: 0;
+          transform: scale(1.01);
+        }
+        .mobile-party-top {
+          display: flex;
+          justify-content: space-between;
+          gap: 16px;
+          align-items: flex-start;
+          padding: 22px 20px 0;
+        }
+        .mobile-party-kicker {
+          margin: 0 0 2px;
+          color: var(--hero);
+          font-size: 0.88rem;
+          font-weight: 900;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          text-shadow: 0 0 18px rgba(228, 168, 74, 0.38);
+        }
+        .mobile-party-title {
+          margin: 0;
+          color: rgba(255, 255, 255, 0.86);
+          font-size: 0.92rem;
+          font-weight: 600;
+        }
+        .mobile-wave {
+          display: grid;
+          place-items: center;
+          width: 44px;
+          height: 44px;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 999px;
+          background: rgba(0, 0, 0, 0.42);
+          color: white;
+          font-size: 1.15rem;
+          box-shadow: 0 0 24px rgba(139, 50, 255, 0.26);
+        }
+        .mobile-party-spacer {
+          min-height: 36svh;
+        }
+        .mobile-party-bottom {
+          display: grid;
+          gap: 18px;
+          padding: 0 20px 22px;
+          pointer-events: auto;
+        }
+        .mobile-time-row {
+          display: grid;
+          grid-template-columns: auto 1fr auto;
+          gap: 10px;
+          align-items: center;
+          color: rgba(255, 255, 255, 0.64);
+          font-size: 0.78rem;
+          font-variant-numeric: tabular-nums;
+        }
+        .mobile-progress {
+          position: relative;
+          height: 4px;
+          border-radius: 999px;
+          overflow: hidden;
+          background: rgba(255, 255, 255, 0.18);
+        }
+        .mobile-progress-fill {
+          display: block;
+          width: 0%;
+          height: 100%;
+          border-radius: inherit;
+          background: linear-gradient(90deg, var(--accent), var(--cyan));
+          box-shadow: 0 0 16px rgba(139, 50, 255, 0.86);
+        }
+        .mobile-control-row {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 28px;
+        }
+        .mobile-control,
+        .mobile-control-small {
+          display: grid;
+          place-items: center;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 999px;
+          background: rgba(7, 4, 16, 0.58);
+          color: white;
+          box-shadow:
+            inset 0 0 18px rgba(139, 50, 255, 0.22),
+            0 0 24px rgba(139, 50, 255, 0.22);
+          backdrop-filter: blur(12px);
+        }
+        .mobile-control {
+          width: 74px;
+          height: 74px;
+          border-color: rgba(173, 70, 255, 0.82);
+          font-size: 2.1rem;
+          box-shadow:
+            inset 0 0 20px rgba(139, 50, 255, 0.3),
+            0 0 30px rgba(139, 50, 255, 0.58);
+        }
+        .mobile-control-small {
+          width: 48px;
+          height: 48px;
+          font-size: 1.25rem;
+        }
+        .mobile-secondary-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+        }
+        .mobile-chip,
+        .mobile-icon-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          min-height: 42px;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 999px;
+          background: rgba(7, 4, 16, 0.62);
+          color: rgba(255, 255, 255, 0.9);
+          box-shadow: inset 0 0 18px rgba(139, 50, 255, 0.16);
+          backdrop-filter: blur(12px);
+        }
+        .mobile-chip {
+          padding: 0 16px;
+          font-weight: 800;
+        }
+        .mobile-icon-btn {
+          width: 44px;
+          padding: 0;
+          font-size: 1.05rem;
+        }
+        body.runtime-profile-mobile.party-mode-active .mobile-tracklist,
+        body.runtime-profile-mobile.player-view-party .mobile-tracklist {
+          position: fixed;
+          left: max(24px, env(safe-area-inset-left));
+          right: max(24px, env(safe-area-inset-right));
+          bottom: max(24px, env(safe-area-inset-bottom));
+          z-index: 6;
+          display: grid;
+          gap: 8px;
+          max-height: min(58svh, 420px);
+          padding: 18px;
+          border: 1px solid rgba(139, 50, 255, 0.62);
+          border-radius: 22px;
+          background: rgba(8, 5, 20, 0.94);
+          box-shadow: 0 0 44px rgba(139, 50, 255, 0.42);
+          backdrop-filter: blur(18px);
+          transform: translateY(calc(100% + 36px));
+          transition: transform 220ms ease;
+          overflow: auto;
+        }
+        body.mobile-tracklist-open .mobile-tracklist {
+          transform: translateY(0);
+        }
+        .mobile-tracklist-title {
+          margin: 0 0 4px;
+          color: var(--hero);
+          font-size: 0.78rem;
+          font-weight: 900;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+        }
+        .mobile-tracklist button {
+          display: grid;
+          grid-template-columns: 28px 1fr;
+          gap: 8px;
+          width: 100%;
+          padding: 10px 12px;
+          border: 0;
+          border-radius: 10px;
+          background: transparent;
+          color: rgba(255, 255, 255, 0.86);
+          text-align: left;
+        }
+        .mobile-tracklist button.is-active {
+          background: rgba(139, 50, 255, 0.34);
+          color: white;
+        }
+        @media (orientation: landscape) and (max-height: 620px) {
+          body.runtime-profile-mobile.party-mode-active .panel::before,
+          body.runtime-profile-mobile.player-view-party .panel::before {
+            inset: 10px 24px;
+            border-radius: 30px;
+          }
+          body.runtime-profile-mobile.party-mode-active .mobile-party-ui,
+          body.runtime-profile-mobile.player-view-party .mobile-party-ui {
+            min-height: calc(100svh - 28px);
+            grid-template-rows: auto 1fr;
+          }
+          .mobile-party-spacer {
+            display: none;
+          }
+          .mobile-party-bottom {
+            align-self: end;
+            max-width: 620px;
+            justify-self: center;
+            width: 74vw;
+            padding-bottom: 16px;
+          }
+          .mobile-party-top {
+            padding: 18px 48px 0;
+          }
+          .mobile-control {
+            width: 70px;
+            height: 70px;
+          }
+        }
+      }
       @media (max-width: 680px) {
         body { place-items: start center; padding: 16px 0; }
         .player-layout { grid-template-columns: 1fr; }
@@ -570,7 +865,38 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           <ol id="list"></ol>
         </section>
       </section>
+      <section class="mobile-party-ui" id="mobilePartyUi" aria-label="Mobile party player">
+        <header class="mobile-party-top">
+          <div>
+            <p class="mobile-party-kicker" id="mobileTrackTitle">${escapeHtml(playlist[0]?.title || album.title)}</p>
+            <p class="mobile-party-title">${escapeHtml(album.title)}</p>
+          </div>
+          <span class="mobile-wave" aria-hidden="true">▥</span>
+        </header>
+        <div class="mobile-party-spacer" aria-hidden="true"></div>
+        <footer class="mobile-party-bottom">
+          <div class="mobile-time-row" aria-hidden="true">
+            <span id="mobileElapsed">0:00</span>
+            <span class="mobile-progress"><span class="mobile-progress-fill" id="mobileProgressFill"></span></span>
+            <span id="mobileDuration">0:00</span>
+          </div>
+          <div class="mobile-control-row">
+            <button class="mobile-control-small" id="mobilePrevBtn" type="button" aria-label="Previous song">◀</button>
+            <button class="mobile-control" id="mobilePlayBtn" type="button" aria-label="Play or pause">▶</button>
+            <button class="mobile-control-small" id="mobileNextBtn" type="button" aria-label="Next song">▶</button>
+          </div>
+          <div class="mobile-secondary-row">
+            <button class="mobile-icon-btn" id="mobileVolumeBtn" type="button" aria-label="Mute or unmute">◉</button>
+            <button class="mobile-chip" id="mobileTracklistBtn" type="button">Party Mode</button>
+            <a class="mobile-icon-btn" href="./START-HERE.html" aria-label="Back to album">×</a>
+          </div>
+        </footer>
+      </section>
     </main>
+    <aside class="mobile-tracklist" id="mobileTracklist" aria-label="Tracklist">
+      <p class="mobile-tracklist-title">Tracklist</p>
+      <div id="mobileTracklistItems"></div>
+    </aside>
     <div class="party-div" aria-hidden="true"></div>
 ${audioDataScripts}
     <script src="./runtime-profile.js"></script>
@@ -586,8 +912,24 @@ ${audioDataScripts}
       const playBtn = document.getElementById('playBtn');
       const nextBtn = document.getElementById('nextBtn');
       const viewButtons = Array.from(document.querySelectorAll('.view-btn'));
+      const mobilePartyUi = document.getElementById('mobilePartyUi');
+      const mobileTrackTitle = document.getElementById('mobileTrackTitle');
+      const mobileElapsed = document.getElementById('mobileElapsed');
+      const mobileDuration = document.getElementById('mobileDuration');
+      const mobileProgressFill = document.getElementById('mobileProgressFill');
+      const mobilePrevBtn = document.getElementById('mobilePrevBtn');
+      const mobilePlayBtn = document.getElementById('mobilePlayBtn');
+      const mobileNextBtn = document.getElementById('mobileNextBtn');
+      const mobileVolumeBtn = document.getElementById('mobileVolumeBtn');
+      const mobileTracklistBtn = document.getElementById('mobileTracklistBtn');
+      const mobileTracklist = document.getElementById('mobileTracklist');
+      const mobileTracklistItems = document.getElementById('mobileTracklistItems');
       const shouldAutoplay = new URLSearchParams(window.location.search).get('autoplay') === '1';
       let index = 0;
+      let mobileControlsTimer = 0;
+      let lastTapTime = 0;
+      let pointerStart = null;
+      let longPressTimer = 0;
 
       async function getPlayableSrc(item) {
         return window.albumRuntime.audioProvider.getAudioUrl(item);
@@ -598,6 +940,31 @@ ${audioDataScripts}
           const cls = i === index ? 'class="now"' : '';
           return '<li ' + cls + '><button class="track-select" type="button" data-track-index="' + i + '">' + item.title + '</button></li>';
         }).join('');
+        mobileTracklistItems.innerHTML = playlist.map((item, i) => {
+          const active = i === index ? ' is-active' : '';
+          const number = String(i + 1).padStart(2, '0');
+          return '<button class="mobile-track-option' + active + '" type="button" data-track-index="' + i + '"><span>' + number + '</span><span>' + item.title + '</span></button>';
+        }).join('');
+      }
+
+      function formatTime(seconds) {
+        if (!Number.isFinite(seconds) || seconds < 0) {
+          return '0:00';
+        }
+        const wholeSeconds = Math.floor(seconds);
+        const minutes = Math.floor(wholeSeconds / 60);
+        const remainder = String(wholeSeconds % 60).padStart(2, '0');
+        return minutes + ':' + remainder;
+      }
+
+      function updateMobileProgress() {
+        mobileElapsed.textContent = formatTime(player.currentTime);
+        mobileDuration.textContent = formatTime(player.duration);
+        const progress = player.duration > 0 ? Math.min(player.currentTime / player.duration, 1) : 0;
+        mobileProgressFill.style.width = Math.round(progress * 1000) / 10 + '%';
+        mobilePlayBtn.textContent = player.paused ? '▶' : 'Ⅱ';
+        mobilePlayBtn.setAttribute('aria-label', player.paused ? 'Play' : 'Pause');
+        mobileVolumeBtn.textContent = player.muted || player.volume === 0 ? '○' : '◉';
       }
 
       async function loadTrack(newIndex) {
@@ -608,7 +975,9 @@ ${audioDataScripts}
         backdropArt.src = playlist[index].artwork;
         nowTitle.textContent = playlist[index].title;
         playerMain.dataset.currentTitle = playlist[index].title;
+        mobileTrackTitle.textContent = playlist[index].title;
         renderList();
+        updateMobileProgress();
       }
 
       async function requestFullscreenMicro() {
@@ -631,18 +1000,56 @@ ${audioDataScripts}
       }
 
       function setView(view, persist = true) {
-        if (!['standard', 'mini', 'micro'].includes(view)) {
+        if (!['standard', 'mini', 'micro', 'party'].includes(view)) {
           view = 'standard';
         }
         playerPanel.dataset.view = view;
-        document.body.classList.remove('player-view-standard', 'player-view-mini', 'player-view-micro');
+        document.body.classList.remove('player-view-standard', 'player-view-mini', 'player-view-micro', 'player-view-party');
         document.body.classList.add('player-view-' + view);
         viewButtons.forEach((button) => {
           button.classList.toggle('is-active', button.dataset.view === view);
         });
-        if (persist) {
+        if (persist && view !== 'party') {
           localStorage.setItem('albumPlayerView', view);
         }
+      }
+
+      function isMobileProfile() {
+        return window.albumRuntime.getProfile().name === 'mobile';
+      }
+
+      function showMobileControls() {
+        if (!isMobileProfile()) {
+          return;
+        }
+        document.body.classList.remove('mobile-controls-idle');
+        window.clearTimeout(mobileControlsTimer);
+        mobileControlsTimer = window.setTimeout(() => {
+          if (!document.body.classList.contains('mobile-tracklist-open')) {
+            document.body.classList.add('mobile-controls-idle');
+          }
+        }, 3600);
+      }
+
+      function openMobileTracklist() {
+        document.body.classList.add('mobile-tracklist-open');
+        showMobileControls();
+      }
+
+      function closeMobileTracklist() {
+        document.body.classList.remove('mobile-tracklist-open');
+        showMobileControls();
+      }
+
+      function setMobilePartyViewIfNeeded() {
+        if (!isMobileProfile()) {
+          return;
+        }
+        setView('party', false);
+        if (localStorage.getItem('partyModeEnabled') !== 'true') {
+          localStorage.setItem('partyModeEnabled', 'true');
+        }
+        showMobileControls();
       }
 
       viewButtons.forEach((button) => {
@@ -697,8 +1104,10 @@ ${audioDataScripts}
       function applyRuntimeProfile() {
         const profile = window.albumRuntime.getProfile();
         player.preload = profile.player.preload;
-        if (profile.player.uiDensity === 'compact' && playerPanel.dataset.view === 'standard') {
-          setView('mini', false);
+        if (profile.player.uiDensity === 'compact') {
+          setMobilePartyViewIfNeeded();
+        } else if (playerPanel.dataset.view === 'party') {
+          setView(localStorage.getItem('albumPlayerView') || 'standard', false);
         }
       }
 
@@ -733,6 +1142,15 @@ ${audioDataScripts}
           return;
         }
         await playTrack(Number(button.dataset.trackIndex));
+      });
+
+      mobileTracklistItems.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-track-index]');
+        if (!button) {
+          return;
+        }
+        await playTrack(Number(button.dataset.trackIndex));
+        closeMobileTracklist();
       });
 
       document.addEventListener('keydown', async (event) => {
@@ -770,9 +1188,131 @@ ${audioDataScripts}
         await nextTrack();
       });
 
+      mobilePlayBtn.addEventListener('click', async (event) => {
+        event.stopPropagation();
+        await togglePlayback();
+        showMobileControls();
+      });
+
+      mobilePrevBtn.addEventListener('click', async (event) => {
+        event.stopPropagation();
+        await previousTrack();
+        showMobileControls();
+      });
+
+      mobileNextBtn.addEventListener('click', async (event) => {
+        event.stopPropagation();
+        await nextTrack();
+        showMobileControls();
+      });
+
+      mobileVolumeBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        player.muted = !player.muted;
+        updateMobileProgress();
+        showMobileControls();
+      });
+
+      mobileTracklistBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (document.body.classList.contains('mobile-tracklist-open')) {
+          closeMobileTracklist();
+        } else {
+          openMobileTracklist();
+        }
+      });
+
+      playerPanel.addEventListener('pointerdown', (event) => {
+        if (!isMobileProfile() || playerPanel.dataset.view !== 'party') {
+          return;
+        }
+        if (event.target.closest('button, a, input, [data-track-index]')) {
+          return;
+        }
+        pointerStart = {
+          x: event.clientX,
+          y: event.clientY,
+          time: Date.now(),
+          volume: player.volume
+        };
+        window.clearTimeout(longPressTimer);
+        longPressTimer = window.setTimeout(() => {
+          localStorage.setItem('partyModePerformance', localStorage.getItem('partyModePerformance') === 'low' ? 'medium' : 'low');
+          showMobileControls();
+        }, 700);
+      });
+
+      playerPanel.addEventListener('pointermove', (event) => {
+        if (!pointerStart || !isMobileProfile() || playerPanel.dataset.view !== 'party') {
+          return;
+        }
+        const dx = event.clientX - pointerStart.x;
+        const dy = event.clientY - pointerStart.y;
+        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+          window.clearTimeout(longPressTimer);
+        }
+        if (pointerStart.x > window.innerWidth * 0.72 && Math.abs(dy) > 12) {
+          const nextVolume = Math.max(0, Math.min(1, pointerStart.volume - dy / 260));
+          player.volume = nextVolume;
+          player.muted = nextVolume === 0;
+          updateMobileProgress();
+          showMobileControls();
+        }
+      });
+
+      playerPanel.addEventListener('pointerup', async (event) => {
+        if (!pointerStart || !isMobileProfile() || playerPanel.dataset.view !== 'party') {
+          pointerStart = null;
+          return;
+        }
+        if (event.target.closest('button, a, input, [data-track-index]')) {
+          pointerStart = null;
+          return;
+        }
+        window.clearTimeout(longPressTimer);
+        const dx = event.clientX - pointerStart.x;
+        const dy = event.clientY - pointerStart.y;
+        const distance = Math.hypot(dx, dy);
+        const now = Date.now();
+
+        if (dy < -70 && Math.abs(dx) < 90) {
+          openMobileTracklist();
+        } else if (dy > 80 && Math.abs(dx) < 90) {
+          window.location.href = './START-HERE.html';
+        } else if (distance < 14) {
+          if (now - lastTapTime < 320) {
+            if (event.clientX < window.innerWidth * 0.45) {
+              await previousTrack();
+            } else {
+              await nextTrack();
+            }
+            lastTapTime = 0;
+          } else {
+            lastTapTime = now;
+            if (document.body.classList.contains('mobile-controls-idle')) {
+              showMobileControls();
+            } else {
+              document.body.classList.add('mobile-controls-idle');
+            }
+          }
+        }
+
+        pointerStart = null;
+      });
+
       player.addEventListener('ended', async () => {
         await loadTrack(index + 1);
         try { await player.play(); } catch (err) { console.error(err); }
+      });
+      player.addEventListener('timeupdate', updateMobileProgress);
+      player.addEventListener('durationchange', updateMobileProgress);
+      player.addEventListener('play', () => {
+        updateMobileProgress();
+        showMobileControls();
+      });
+      player.addEventListener('pause', () => {
+        updateMobileProgress();
+        showMobileControls();
       });
 
       loadTrack(0)
