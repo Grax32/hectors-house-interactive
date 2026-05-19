@@ -559,6 +559,7 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         }
         body.runtime-profile-mobile.party-mode-active .party-div,
         body.runtime-profile-mobile.player-view-party .party-div {
+          display: block;
           z-index: 2;
           opacity: 0.75;
         }
@@ -1064,11 +1065,7 @@ ${audioDataScripts}
           exitMobilePartyView();
           return;
         }
-        if (window.albumPartyMode && window.albumPartyMode.isEnabled()) {
-          enterMobilePartyView();
-        } else {
-          exitMobilePartyView();
-        }
+        enterMobilePartyView();
       }
 
       viewButtons.forEach((button) => {
