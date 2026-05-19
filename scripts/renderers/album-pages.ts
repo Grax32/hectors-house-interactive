@@ -546,7 +546,7 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           background:
             radial-gradient(circle at 50% 0%, rgba(139, 50, 255, 0.34), transparent 34%),
             #000;
-          touch-action: none;
+          touch-action: manipulation;
         }
         body.runtime-profile-mobile.party-mode-active .art-backdrop,
         body.runtime-profile-mobile.player-view-party .art-backdrop {
@@ -1032,6 +1032,9 @@ ${audioDataScripts}
       }
 
       function openMobileTracklist() {
+        if (playerPanel.dataset.view !== 'party') {
+          return;
+        }
         document.body.classList.add('mobile-tracklist-open');
         showMobileControls();
       }
@@ -1041,15 +1044,31 @@ ${audioDataScripts}
         showMobileControls();
       }
 
-      function setMobilePartyViewIfNeeded() {
+      function enterMobilePartyView() {
         if (!isMobileProfile()) {
           return;
         }
         setView('party', false);
-        if (localStorage.getItem('partyModeEnabled') !== 'true') {
-          localStorage.setItem('partyModeEnabled', 'true');
-        }
         showMobileControls();
+      }
+
+      function exitMobilePartyView() {
+        document.body.classList.remove('mobile-controls-idle', 'mobile-tracklist-open');
+        if (playerPanel.dataset.view === 'party') {
+          setView(localStorage.getItem('albumPlayerView') || 'standard', false);
+        }
+      }
+
+      function syncMobilePartyView() {
+        if (!isMobileProfile()) {
+          exitMobilePartyView();
+          return;
+        }
+        if (window.albumPartyMode && window.albumPartyMode.isEnabled()) {
+          enterMobilePartyView();
+        } else {
+          exitMobilePartyView();
+        }
       }
 
       viewButtons.forEach((button) => {
@@ -1104,11 +1123,7 @@ ${audioDataScripts}
       function applyRuntimeProfile() {
         const profile = window.albumRuntime.getProfile();
         player.preload = profile.player.preload;
-        if (profile.player.uiDensity === 'compact') {
-          setMobilePartyViewIfNeeded();
-        } else if (playerPanel.dataset.view === 'party') {
-          setView(localStorage.getItem('albumPlayerView') || 'standard', false);
-        }
+        syncMobilePartyView();
       }
 
       async function nextTrack() {
@@ -1215,10 +1230,8 @@ ${audioDataScripts}
 
       mobileTracklistBtn.addEventListener('click', (event) => {
         event.stopPropagation();
-        if (document.body.classList.contains('mobile-tracklist-open')) {
-          closeMobileTracklist();
-        } else {
-          openMobileTracklist();
+        if (window.albumPartyMode) {
+          window.albumPartyMode.toggle();
         }
       });
 
@@ -1299,6 +1312,8 @@ ${audioDataScripts}
 
         pointerStart = null;
       });
+
+      window.addEventListener('album-party-mode-change', syncMobilePartyView);
 
       player.addEventListener('ended', async () => {
         await loadTrack(index + 1);

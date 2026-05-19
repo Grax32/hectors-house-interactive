@@ -631,6 +631,9 @@ function buildPartyModeLoaderScript(): string {
       maybeStartVisualizer();
     }
     updateButtonState();
+    window.dispatchEvent(new CustomEvent('album-party-mode-change', {
+      detail: { enabled: isEnabled, rendering: isRendering }
+    }));
   }
 
   async function maybeStartVisualizer() {
@@ -780,7 +783,23 @@ function buildPartyModeLoaderScript(): string {
     });
     updateButtonState();
     maybeStartVisualizer();
+    window.dispatchEvent(new CustomEvent('album-party-mode-change', {
+      detail: { enabled: isEnabled, rendering: isRendering }
+    }));
   }
+
+  window.albumPartyMode = {
+    isEnabled: function () {
+      return isEnabled;
+    },
+    isRendering: function () {
+      return isRendering;
+    },
+    setEnabled: setPartyModeEnabled,
+    toggle: function () {
+      setPartyModeEnabled(!isEnabled);
+    }
+  };
 
   window.addEventListener('resize', resizeCanvas);
   window.addEventListener('album-runtime-profile-change', function (event) {
