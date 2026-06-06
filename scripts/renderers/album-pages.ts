@@ -984,8 +984,19 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         #mobileVolumeBtn {
           display: none;
         }
+        #mobileFullscreenBtn {
+          display: none;
+        }
         #mobileTracklistBtn {
           width: min(100%, 240px);
+        }
+        @media (min-width: 700px) and (min-height: 700px) {
+          .mobile-secondary-row {
+            gap: 10px;
+          }
+          #mobileFullscreenBtn.is-supported {
+            display: inline-flex;
+          }
         }
         body.runtime-profile-mobile.party-mode-active .mobile-tracklist,
         body.runtime-profile-mobile.player-view-party .mobile-tracklist {
@@ -1124,6 +1135,7 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           <div class="mobile-secondary-row">
             <button class="mobile-icon-btn" id="mobileVolumeBtn" type="button" aria-label="Mute or unmute">◉</button>
             <button class="mobile-chip" id="mobileTracklistBtn" type="button" aria-pressed="false">Party Mode Off</button>
+            <button class="mobile-icon-btn" id="mobileFullscreenBtn" type="button" aria-label="Enter full screen" title="Full Screen">⛶</button>
           </div>
         </footer>
       </section>
@@ -1169,6 +1181,7 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
       const mobilePlayBtn = document.getElementById('mobilePlayBtn');
       const mobileNextBtn = document.getElementById('mobileNextBtn');
       const mobileVolumeBtn = document.getElementById('mobileVolumeBtn');
+      const mobileFullscreenBtn = document.getElementById('mobileFullscreenBtn');
       const mobileTracklistBtn = document.getElementById('mobileTracklistBtn');
       const mobileTracklist = document.getElementById('mobileTracklist');
       const mobileTracklistItems = document.getElementById('mobileTracklistItems');
@@ -1355,9 +1368,11 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
       }
 
       async function requestFullscreen() {
-        if (document.fullscreenElement) {
+        if (getFullscreenElement()) {
           if (document.exitFullscreen) {
             try { await document.exitFullscreen(); } catch (err) { console.error(err); }
+          } else if (document.webkitExitFullscreen) {
+            try { await document.webkitExitFullscreen(); } catch (err) { console.error(err); }
           }
           return;
         }
@@ -1365,6 +1380,8 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         try {
           if (document.documentElement.requestFullscreen) {
             await document.documentElement.requestFullscreen();
+          } else if (document.documentElement.webkitRequestFullscreen) {
+            await document.documentElement.webkitRequestFullscreen();
           }
         } catch (err) {
           console.error(err);
@@ -1389,7 +1406,17 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
       }
 
       function updateFullscreenState() {
-        document.body.classList.toggle('is-fullscreen', Boolean(document.fullscreenElement));
+        const isFullscreen = Boolean(getFullscreenElement());
+        document.body.classList.toggle('is-fullscreen', isFullscreen);
+        mobileFullscreenBtn.setAttribute('aria-label', isFullscreen ? 'Exit full screen' : 'Enter full screen');
+      }
+
+      function getFullscreenElement() {
+        return document.fullscreenElement || document.webkitFullscreenElement;
+      }
+
+      function supportsPageFullscreen() {
+        return Boolean(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
       }
 
       function isMobileProfile() {
@@ -1487,12 +1514,23 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         await requestFullscreen();
       });
 
+      if (supportsPageFullscreen()) {
+        mobileFullscreenBtn.classList.add('is-supported');
+      }
+
+      mobileFullscreenBtn.addEventListener('click', async (event) => {
+        event.stopPropagation();
+        await requestFullscreen();
+        showMobileControls();
+      });
+
       document.addEventListener('fullscreenchange', () => {
         updateFullscreenState();
-        if (!document.fullscreenElement && !isMobileProfile()) {
+        if (!getFullscreenElement() && !isMobileProfile()) {
           setView('standard');
         }
       });
+      document.addEventListener('webkitfullscreenchange', updateFullscreenState);
 
       async function togglePlayback() {
         if (player.paused) {
@@ -1578,8 +1616,10 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         }
 
         if (event.key === 'Escape') {
-          if (document.fullscreenElement && document.exitFullscreen) {
+          if (getFullscreenElement() && document.exitFullscreen) {
             try { await document.exitFullscreen(); } catch (err) { console.error(err); }
+          } else if (getFullscreenElement() && document.webkitExitFullscreen) {
+            try { await document.webkitExitFullscreen(); } catch (err) { console.error(err); }
           }
           if (!isMobileProfile()) {
             setView('standard');
