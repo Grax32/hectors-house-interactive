@@ -990,11 +990,11 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         #mobileTracklistBtn {
           width: min(100%, 240px);
         }
-        @media (min-width: 700px) and (min-height: 700px) {
+        @media (min-width: 640px) and (min-height: 500px) {
           .mobile-secondary-row {
             gap: 10px;
           }
-          #mobileFullscreenBtn.is-supported {
+          body.mobile-fullscreen-control-visible #mobileFullscreenBtn {
             display: inline-flex;
           }
         }
@@ -1374,18 +1374,21 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
           } else if (document.webkitExitFullscreen) {
             try { await document.webkitExitFullscreen(); } catch (err) { console.error(err); }
           }
-          return;
+          return true;
         }
 
         try {
           if (document.documentElement.requestFullscreen) {
             await document.documentElement.requestFullscreen();
+            return true;
           } else if (document.documentElement.webkitRequestFullscreen) {
             await document.documentElement.webkitRequestFullscreen();
+            return true;
           }
         } catch (err) {
           console.error(err);
         }
+        return false;
       }
 
       function setView(view, persist = true) {
@@ -1409,6 +1412,7 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         const isFullscreen = Boolean(getFullscreenElement());
         document.body.classList.toggle('is-fullscreen', isFullscreen);
         mobileFullscreenBtn.setAttribute('aria-label', isFullscreen ? 'Exit full screen' : 'Enter full screen');
+        mobileFullscreenBtn.title = isFullscreen ? 'Exit Full Screen' : 'Full Screen';
       }
 
       function getFullscreenElement() {
@@ -1417,6 +1421,17 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
 
       function supportsPageFullscreen() {
         return Boolean(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+      }
+
+      function isTabletLikeViewport() {
+        return window.innerWidth >= 640 && window.innerHeight >= 500;
+      }
+
+      function syncMobileFullscreenButton() {
+        document.body.classList.toggle(
+          'mobile-fullscreen-control-visible',
+          Boolean(isMobileProfile() && isTabletLikeViewport())
+        );
       }
 
       function isMobileProfile() {
@@ -1514,13 +1529,13 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         await requestFullscreen();
       });
 
-      if (supportsPageFullscreen()) {
-        mobileFullscreenBtn.classList.add('is-supported');
-      }
-
       mobileFullscreenBtn.addEventListener('click', async (event) => {
         event.stopPropagation();
-        await requestFullscreen();
+        const changedFullscreen = await requestFullscreen();
+        if (!changedFullscreen && !supportsPageFullscreen()) {
+          document.body.classList.add('mobile-controls-idle');
+          return;
+        }
         showMobileControls();
       });
 
@@ -1559,6 +1574,7 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
         const profile = window.albumRuntime.getProfile();
         player.preload = profile.player.preload;
         syncMobilePartyView();
+        syncMobileFullscreenButton();
         syncDesktopPartyControls();
       }
 
@@ -1834,6 +1850,7 @@ export function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables):
       setView(localStorage.getItem('albumPlayerView') || 'standard');
       applyRuntimeProfile();
       window.addEventListener('album-runtime-profile-change', applyRuntimeProfile);
+      window.addEventListener('resize', syncMobileFullscreenButton);
     </script>
     <script src="./butterchurn.min.js"></script>
     <script src="./butterchurnPresetsMinimal.min.js"></script>
