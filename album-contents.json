@@ -1,12 +1,20 @@
 {
   "files": [
     "START-HERE.html",
-    "play-album.html",
-    "party-mode.js"
+    "play-album.html"
   ],
   "directories": [
     "content",
     "music"
   ],
-  "copy": []
+  "copy": [
+    {
+      "from": "content-files/Hector Specter - Web Site.url",
+      "to": "Hector Specter - Web Site.url"
+    },
+    {
+      "from": "content-files/links.html",
+      "to": "links.html"
+    }
+  ]
 }

@@ -1,4 +1,13 @@
+/**
+ * Writes the built album package from dist to a target directory, typically the
+ * root of a USB drive. The script validates the target, optionally cleans it,
+ * copies every regular file from dist while preserving relative paths, then
+ * verifies the copy by comparing file size and hashes. On Windows, removable
+ * drive roots are allowed for --clean, but protected metadata folders are left
+ * in place so writing directly to a USB root can still succeed.
+ */
 import * as crypto from 'crypto';
+import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -19,6 +28,10 @@ interface FileEntry {
 
 const DIST_DIR = path.resolve(process.cwd(), 'dist');
 const HASH_ALGORITHMS = new Set<HashAlgorithm>(['md5', 'sha256', 'sha512']);
+const WINDOWS_ROOT_METADATA = new Set(['$RECYCLE.BIN', 'System Volume Information']);
+const USB_VOLUME_LABEL = "Hector's House - Hector Specter";
+const USB_VOLUME_LABEL_EXFAT = 'Hectors House';
+const USB_VOLUME_LABEL_FAT = 'HECTORHOUSE';
 
 function printUsage(): void {
   console.log([
@@ -26,7 +39,8 @@ function printUsage(): void {
     '       npx ts-node scripts/write-dist.ts <target-path> [--clean] [--hash md5|sha256|sha512]',
     '',
     'Copies the contents of dist into <target-path>, then validates each copied file',
-    'by comparing file size and hash. Defaults to md5.',
+    'by comparing file size and hash. Defaults to md5. When writing to a Windows',
+    `removable drive root, the volume label is set to "${USB_VOLUME_LABEL}".`,
     '',
     'When using npm, pass script options after an extra separator:',
     '  npm run write-dist -- -- --clean ./release-copy',
@@ -101,6 +115,130 @@ function isSameOrInside(candidate: string, parent: string): boolean {
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
+function isRootPath(targetDir: string): boolean {
+  return targetDir === path.parse(targetDir).root;
+}
+
+function getWindowsDriveLetter(targetDir: string): string | null {
+  const drive = path.parse(targetDir).root.replace(/\\$/, '');
+  const match = /^([A-Za-z]):$/.exec(drive);
+  return match ? match[1].toUpperCase() : null;
+}
+
+function ensureDirectory(directoryPath: string): void {
+  if (fs.existsSync(directoryPath)) {
+    if (!fs.statSync(directoryPath).isDirectory()) {
+      throw new Error(`Path exists but is not a directory: ${directoryPath}`);
+    }
+    return;
+  }
+
+  if (isRootPath(directoryPath)) {
+    throw new Error(`Drive root does not exist or is not available: ${directoryPath}`);
+  }
+
+  fs.mkdirSync(directoryPath, { recursive: true });
+}
+
+function isRemovableWindowsRoot(targetDir: string): boolean {
+  if (process.platform !== 'win32' || !isRootPath(targetDir)) {
+    return false;
+  }
+
+  const driveLetter = getWindowsDriveLetter(targetDir);
+  if (!driveLetter) {
+    return false;
+  }
+
+  try {
+    const output = execFileSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        `(Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='${driveLetter}:'").DriveType`
+      ],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+    ).trim();
+
+    return output === '2';
+  } catch {
+    return false;
+  }
+}
+
+function getWindowsVolumeFileSystem(driveLetter: string): string {
+  try {
+    return execFileSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        `(Get-Volume -DriveLetter '${driveLetter}').FileSystem`
+      ],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+    ).trim().toUpperCase();
+  } catch {
+    return '';
+  }
+}
+
+function getVolumeLabelForFileSystem(fileSystem: string): string {
+  if (fileSystem === 'NTFS') {
+    return USB_VOLUME_LABEL;
+  }
+
+  if (fileSystem === 'EXFAT') {
+    return USB_VOLUME_LABEL_EXFAT;
+  }
+
+  if (fileSystem === 'FAT' || fileSystem === 'FAT32') {
+    return USB_VOLUME_LABEL_FAT;
+  }
+
+  return USB_VOLUME_LABEL_FAT;
+}
+
+function escapePowerShellSingleQuotedString(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
+function renameTargetVolume(targetDir: string): void {
+  if (process.platform !== 'win32' || !isRootPath(targetDir) || !isRemovableWindowsRoot(targetDir)) {
+    return;
+  }
+
+  const driveLetter = getWindowsDriveLetter(targetDir);
+  if (!driveLetter) {
+    return;
+  }
+
+  const fileSystem = getWindowsVolumeFileSystem(driveLetter);
+  const volumeLabel = getVolumeLabelForFileSystem(fileSystem);
+
+  try {
+    execFileSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        [
+          "$ErrorActionPreference = 'Stop'",
+          `Set-Volume -DriveLetter '${driveLetter}' -NewFileSystemLabel '${escapePowerShellSingleQuotedString(volumeLabel)}'`
+        ].join('; ')
+      ],
+      { stdio: ['ignore', 'ignore', 'pipe'] }
+    );
+    console.log(`[INFO] Volume label: ${volumeLabel}${fileSystem ? ` (${fileSystem})` : ''}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[WARN] Could not rename USB volume: ${message}`);
+  }
+}
+
 function validatePaths(targetDir: string, clean: boolean): void {
   if (!fs.existsSync(DIST_DIR) || !fs.statSync(DIST_DIR).isDirectory()) {
     throw new Error(`dist directory not found: ${DIST_DIR}`);
@@ -121,7 +259,7 @@ function validatePaths(targetDir: string, clean: boolean): void {
     path.dirname(process.cwd())
   ].map((value) => path.resolve(value));
 
-  if (protectedPaths.includes(targetDir)) {
+  if (protectedPaths.includes(targetDir) && !isRemovableWindowsRoot(targetDir)) {
     throw new Error(`Refusing to clean protected path: ${targetDir}`);
   }
 }
@@ -133,7 +271,17 @@ function removeExistingTargetContents(targetDir: string): void {
 
   const entries = fs.readdirSync(targetDir);
   for (const entry of entries) {
-    fs.rmSync(path.join(targetDir, entry), { recursive: true, force: true });
+    if (process.platform === 'win32' && isRootPath(targetDir) && WINDOWS_ROOT_METADATA.has(entry)) {
+      console.warn(`[WARN] Skipping Windows metadata folder: ${entry}`);
+      continue;
+    }
+
+    try {
+      fs.rmSync(path.join(targetDir, entry), { recursive: true, force: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[WARN] Could not remove ${entry}: ${message}`);
+    }
   }
 }
 
@@ -141,8 +289,16 @@ function listFiles(rootDir: string): FileEntry[] {
   const files: FileEntry[] = [];
 
   function walk(currentDir: string): void {
-    const entries = fs.readdirSync(currentDir, { withFileTypes: true })
-      .sort((a, b) => a.name.localeCompare(b.name));
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(currentDir, { withFileTypes: true })
+        .sort((a, b) => a.name.localeCompare(b.name));
+    } catch (error) {
+      const relativeDir = path.relative(rootDir, currentDir) || currentDir;
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[WARN] Could not read ${relativeDir}: ${message}`);
+      return;
+    }
 
     for (const entry of entries) {
       const absolutePath = path.join(currentDir, entry.name);
@@ -171,7 +327,7 @@ function listFiles(rootDir: string): FileEntry[] {
 function copyFiles(files: FileEntry[], targetDir: string): void {
   for (const file of files) {
     const targetPath = path.join(targetDir, file.relativePath);
-    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    ensureDirectory(path.dirname(targetPath));
     fs.copyFileSync(file.absolutePath, targetPath);
   }
 }
@@ -275,8 +431,10 @@ async function main(): Promise<void> {
       removeExistingTargetContents(targetDir);
     }
 
+    renameTargetVolume(targetDir);
+
     console.log(`[INFO] Copying ${sourceFiles.length} file(s)...`);
-    fs.mkdirSync(targetDir, { recursive: true });
+    ensureDirectory(targetDir);
     copyFiles(sourceFiles, targetDir);
 
     console.log('[INFO] Validating copied files...');

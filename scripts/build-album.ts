@@ -925,7 +925,7 @@ function buildPartyModeLoaderScript(): string {
 `;
 }
 
-function writePartyModeScript(): void {
+function buildPartyModeBundle(): string {
   const butterchurnPath = require.resolve('butterchurn/lib/butterchurn.min.js');
   const presetsPath = require.resolve('butterchurn-presets/lib/butterchurnPresetsMinimal.min.js');
   const wrapUmdLibrary = (libraryName: string, source: string): string => `
@@ -947,10 +947,14 @@ ${source}
     buildPartyModeLoaderScript()
   ];
 
-  fs.writeFileSync(path.join(DIST_DIR, 'party-mode.js'), `${parts.join('\n\n')}\n`, 'utf-8');
-  console.log('[OK] Wrote party mode bundle: party-mode.js');
+  return `${parts.join('\n\n')}\n`;
 }
 
+function escapeInlineScript(script: string): string {
+  return script
+    .replace(/<\/script/gi, '<\\/script')
+    .replace(/<!--/g, '<\\!--');
+}
 
 function resetDistDirectory(): void {
   const purgeTargets = [
@@ -1505,6 +1509,7 @@ function buildAlbumLandingHtml(album: ResolvedAlbum, theme: ThemeVariables, opti
           <p>${escapeHtml(album.description)}</p>
           <div class="actions">
             <a class="btn" href="./play-album.html?autoplay=1">Play Album</a>
+            <a class="btn" href="https://hectors-house.hectorspecter.com/START-HERE">Hector's House Online</a>
             ${musicFolderButton}
           </div>
         </section>
@@ -1533,6 +1538,7 @@ function buildPlayAlbumHtml(album: ResolvedAlbum, theme: ThemeVariables): string
   const audioDataScripts = album.tracks
     .map((track) => `    <script src="${escapeHtml(track.audioDataPathFromRoot)}"></script>`)
     .join('\n');
+  const inlinePartyModeScript = escapeInlineScript(buildPartyModeBundle());
 
   return `<!doctype html>
 <html lang="en">
@@ -2039,7 +2045,9 @@ ${audioDataScripts}
         .catch((err) => console.error(err));
       setView(localStorage.getItem('albumPlayerView') || 'standard');
     </script>
-    <script src="./party-mode.js"></script>
+    <script>
+${inlinePartyModeScript}
+    </script>
   </body>
 </html>
 `;
@@ -2055,6 +2063,8 @@ function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, currentIn
   const secondaryActionAttributes = isLastTrack
     ? ''
     : ' id="secondaryAction"';
+  const mp3DownloadHref = `../../music/${track.mp3OutputFileName}`;
+  const wavDownloadHref = `../../music/wav/${track.wavOutputFileName}`;
 
   return `<!doctype html>
 <html lang="en">
@@ -2149,6 +2159,11 @@ function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, currentIn
         gap: 10px;
         margin: 12px 0 14px;
       }
+      .download-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
       button, a {
         border: 1px solid var(--line);
         background: var(--bg);
@@ -2176,7 +2191,8 @@ function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, currentIn
         .actions { margin: 6px 0 8px; gap: 8px; }
       }
       @media (max-width: 540px) {
-        .actions { grid-template-columns: 1fr; }
+        .actions,
+        .download-actions { grid-template-columns: 1fr; }
       }
       @media (orientation: landscape) and (min-width: 860px) {
         .card { padding: 22px; }
@@ -2224,12 +2240,15 @@ function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, currentIn
               <button id="playSong" class="primary">Play Song</button>
               <a${secondaryActionAttributes} href="${escapeHtml(secondaryActionHref)}">${escapeHtml(secondaryActionLabel)}</a>
             </div>
+            <div class="download-actions">
+              <a href="${escapeHtml(mp3DownloadHref)}" download>Download MP3</a>
+              <a href="${escapeHtml(wavDownloadHref)}" download>Download WAV</a>
+            </div>
             <audio id="player" controls src="../../${escapeHtml(track.audioPathFromRoot.replace(/^\.\//, ''))}"></audio>
           </section>
         </section>
       </section>
     </main>
-    <div class="party-div" aria-hidden="true"></div>
     <script src="../../${escapeHtml(track.audioDataPathFromRoot.replace(/^\.\//, ''))}"></script>
     <script>
       const player = document.getElementById('player');
@@ -2281,7 +2300,6 @@ function buildSongPageHtml(album: ResolvedAlbum, track: ResolvedTrack, currentIn
         player.play().catch((err) => console.error(err));
       }
     </script>
-    <script src="../../party-mode.js"></script>
   </body>
 </html>
 `;
@@ -2296,7 +2314,6 @@ function writeGuidedEntryPoint(theme: ThemeVariables, options: BuildOptions): vo
   }
 
   prepareContentAndMusic(album, options);
-  writePartyModeScript();
 
   const landing = buildAlbumLandingHtml(album, theme, options);
   fs.writeFileSync(path.join(DIST_DIR, 'START-HERE.html'), landing, 'utf-8');
